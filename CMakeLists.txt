@@ -93,3 +93,59 @@ endif()
 if(COMMAND wsp_enable_hardening)
   wsp_enable_hardening(wfc_mscomctl)
 endif()
+
+# --- Tests --------------------------------------------------------------------
+# The table (any build) and, in the shared build, the DLL itself: a C program
+# loads wfcmscomctl.dll, checks its COM entry points and version resource, and
+# registers and unregisters it in the registry of the current user.
+if(BUILD_TESTING AND WFC_BUILD_TESTS AND WIN32)
+  add_executable(mscomctl_tables_test tests/mscomctl_tables_test.cpp)
+  target_link_libraries(mscomctl_tables_test PRIVATE wfc_mscomctl)
+  if(WFC_MSCOMCTL_SHARED)
+    # Next to the DLL, so the program finds it.
+    set_target_properties(
+      mscomctl_tables_test
+      PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+  endif()
+  target_compile_features(mscomctl_tables_test PRIVATE cxx_std_20)
+  if(COMMAND wfc_enable_strict_warnings)
+    wfc_enable_strict_warnings(mscomctl_tables_test)
+  endif()
+  if(COMMAND wsp_enable_hardening)
+    wsp_enable_hardening(mscomctl_tables_test)
+  endif()
+  add_test(NAME TC-MP0010-mscomctl-tables COMMAND mscomctl_tables_test)
+  set_tests_properties(
+    TC-MP0010-mscomctl-tables
+    PROPERTIES LABELS "unit;mp-0010;mscomctl"
+  )
+
+  if(WFC_MSCOMCTL_SHARED)
+    enable_language(C)
+    add_executable(mscomctl_dll_test tests/mscomctl_dll_test.c)
+    target_link_libraries(mscomctl_dll_test PRIVATE version advapi32)
+    add_dependencies(mscomctl_dll_test wfc_mscomctl)
+    if(MSVC)
+      target_compile_options(mscomctl_dll_test PRIVATE /W4 /WX)
+    else()
+      target_compile_options(mscomctl_dll_test PRIVATE -Wall -Wextra -Werror)
+    endif()
+    if(COMMAND wsp_enable_hardening)
+      wsp_enable_hardening(mscomctl_dll_test)
+    endif()
+    add_test(
+      NAME TC-MP0010-mscomctl-dll
+      COMMAND
+        mscomctl_dll_test "$<TARGET_FILE:wfc_mscomctl>" "${WFC_MSCOMCTL_VERSION}"
+        "${WFC_LIB_TARGET}"
+    )
+    set_tests_properties(
+      TC-MP0010-mscomctl-dll
+      PROPERTIES
+        LABELS "integration;mp-0010;mscomctl"
+        RESOURCE_LOCK registry
+        SKIP_RETURN_CODE 77
+    )
+  endif()
+endif()
