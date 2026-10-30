@@ -143,7 +143,7 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   add_test(NAME TC-MP0010-mscomctl-tables COMMAND mscomctl_tables_test)
   set_tests_properties(
     TC-MP0010-mscomctl-tables
-    PROPERTIES LABELS "unit;mp-0010;mscomctl"
+    PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
   if(WIN32 AND WFC_MSCOMCTL_SHARED)
