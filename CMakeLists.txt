@@ -9,6 +9,25 @@
 # WFC_MSCOMCTL_SHARED) and the functions wfc_enable_strict_warnings and
 # wsp_enable_hardening.
 
+# Standalone build: the library outside WFC. WFC itself adds this directory
+# with add_subdirectory and supplies the project, CTest and the WSP hardening.
+if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+  cmake_minimum_required(VERSION 3.28)
+  project(wfc-mscomctl LANGUAGES CXX)
+  option(WFC_BUILD_TESTS "Build the tests" ON)
+  include(CTest)
+  list(APPEND CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake")
+  include(WfcWarnings)
+  # WSP-SEC-0015: the pinned WSP baseline supplies the hardening flags (not for
+  # the WebAssembly target, whose toolchain has none of them).
+  if(
+    EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/wsp/tools/cmake/WspBuild.cmake"
+    AND NOT EMSCRIPTEN
+  )
+    include("${CMAKE_CURRENT_SOURCE_DIR}/wsp/tools/cmake/WspBuild.cmake")
+  endif()
+endif()
+
 if(NOT DEFINED WFC_OCX_SHARED)
   set(WFC_OCX_SHARED OFF)
 endif()
@@ -98,7 +117,7 @@ endif()
 # The table (any build) and, in the shared build, the DLL itself: a C program
 # loads wfcmscomctl.dll, checks its COM entry points and version resource, and
 # registers and unregisters it in the registry of the current user.
-if(BUILD_TESTING AND WFC_BUILD_TESTS AND WIN32)
+if(BUILD_TESTING AND WFC_BUILD_TESTS)
   add_executable(mscomctl_tables_test tests/mscomctl_tables_test.cpp)
   target_link_libraries(mscomctl_tables_test PRIVATE wfc_mscomctl)
   if(WFC_MSCOMCTL_SHARED)
@@ -121,7 +140,7 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS AND WIN32)
     PROPERTIES LABELS "unit;mp-0010;mscomctl"
   )
 
-  if(WFC_MSCOMCTL_SHARED)
+  if(WIN32 AND WFC_MSCOMCTL_SHARED)
     enable_language(C)
     add_executable(mscomctl_dll_test tests/mscomctl_dll_test.c)
     target_link_libraries(mscomctl_dll_test PRIVATE version advapi32)

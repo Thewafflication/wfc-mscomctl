@@ -15,6 +15,46 @@ Windows Common Controls for WFC: the native replacement for `mscomctl.ocx` (libr
 Target: `wfc_mscomctl` (static library, or `wfcmscomctl.dll` with `WFC_MSCOMCTL_SHARED=ON`;
 the parent default is `WFC_OCX_SHARED`).
 
+## Screenshots
+
+![The WFC common controls example (`examples/common-controls`).](docs/images/common-controls.png)
+
+The WFC common controls example (`examples/common-controls`). Run it with [WFC](https://github.com/Thewafflication/wfc):
+
+```
+wfc run examples/common-controls/gui-comctl.vbp --gui
+```
+
+The images are made with `wfc run ... --gui --screenshots <dir>`.
+
+## Roadmap, compatibility and platforms
+
+- [ROADMAP.md](ROADMAP.md): milestones from 0.6.x to Microsoft parity,
+  including the platform and toolchain tracks.
+- [COMPATIBILITY.md](COMPATIBILITY.md): how far the library matches the
+  Microsoft component.
+- [docs/WSP-ADOPTION.md](docs/WSP-ADOPTION.md): the WSP baseline the library
+  follows (`wsp/` submodule).
+
+| Platform | Status |
+| --- | --- |
+| Windows x86, x64, ARM64 (MSVC) | CI workflow in place; first run pending |
+| Linux x86, x64, ARM through Winelib | experimental CI job; `cmake/winelib.cmake` |
+| WebAssembly (Emscripten) | experimental CI job (member table) |
+| WFC's own C++ compiler and library | planned; neither exists yet |
+
+## Building on its own
+
+```
+git clone --recurse-submodules https://github.com/Thewafflication/wfc-mscomctl
+cmake -S wfc-mscomctl -B out/build
+cmake --build out/build --config Debug
+ctest --test-dir out/build -C Debug
+```
+
+Under Winelib: `-DCMAKE_TOOLCHAIN_FILE=cmake/winelib.cmake
+-DWFC_WARNINGS_AS_ERRORS=OFF`. For WebAssembly use `emcmake cmake`.
+
 ## Version and target
 
 The version is in `VERSION` and the Microsoft component it stands in for in
