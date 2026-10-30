@@ -39,6 +39,16 @@ if(WFC_MSCOMCTL_SHARED AND WIN32)
   list(GET version_parts 1 WFC_LIB_VERSION_MINOR)
   list(GET version_parts 2 WFC_LIB_VERSION_PATCH)
   set(WFC_LIB_VERSION "${WFC_MSCOMCTL_VERSION}")
+  file(
+    STRINGS "${CMAKE_CURRENT_SOURCE_DIR}/TARGET"
+    WFC_LIB_TARGET
+    LIMIT_COUNT 1
+  )
+  configure_file(
+    src/registration_info.hpp.in
+    "${CMAKE_CURRENT_BINARY_DIR}/registration_info.hpp"
+    @ONLY
+  )
   set(WFC_LIB_NAME wfcmscomctl)
   set(WFC_LIB_DESCRIPTION "WFC Windows Common Controls")
   configure_file(
@@ -50,8 +60,12 @@ if(WFC_MSCOMCTL_SHARED AND WIN32)
     wfc_mscomctl
     SHARED
     ${WFC_MSCOMCTL_SOURCES}
+    src/registration.cpp
+    src/wfcmscomctl.def
     "${CMAKE_CURRENT_BINARY_DIR}/wfcmscomctl.rc"
   )
+  target_include_directories(wfc_mscomctl PRIVATE "${CMAKE_CURRENT_BINARY_DIR}")
+  target_link_libraries(wfc_mscomctl PRIVATE advapi32)
   target_compile_definitions(
     wfc_mscomctl
     PUBLIC WFC_MSCOMCTL_SHARED
