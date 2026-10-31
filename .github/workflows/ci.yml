@@ -95,6 +95,26 @@ jobs:
           set -o pipefail
           ctest --test-dir out/winelib --output-on-failure 2>&1 | tee out/test.txt
 
+      - name: Screenshot of the controls under Wine
+        if: matrix.arch == 'x64'
+        continue-on-error: true
+        run: |
+          sudo apt-get install -y xvfb imagemagick
+          mkdir -p docs/images
+          winegcc -mwindows -o out/controls_demo.exe examples/wine/controls_demo.c             -lcomctl32 -luser32 -lgdi32
+          export WINEDEBUG=-all
+          xvfb-run -a -s "-screen 0 800x600x24" bash -c '
+            wineboot -u > /dev/null 2>&1
+            bash scripts/linux_screenshot.sh out/controls.png 10               wine out/controls_demo.exe'
+          convert out/controls.png -fuzz 2% -trim +repage             docs/images/linux-controls.png
+
+      - uses: actions/upload-artifact@v4
+        if: matrix.arch == 'x64'
+        continue-on-error: true
+        with:
+          name: linux-controls
+          path: docs/images/linux-controls.png
+
       - name: Screenshot of the session
         if: always()
         run: |
