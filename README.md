@@ -27,6 +27,15 @@ wfc run examples/common-controls/gui-comctl.vbp --gui
 
 The images are made with `wfc run ... --gui --screenshots <dir>`.
 
+### Linux (Wine)
+
+![The Windows common controls of the library, running under Wine on Linux](docs/images/linux-controls.png)
+
+The controls the library wraps (tab strip, toolbar, progress bar, slider, tree
+view, list view, status bar), shown by `examples/wine/controls_demo.c` built
+with Wine's `winegcc` and photographed in a virtual display by the CI job
+(`scripts/linux_screenshot.sh`).
+
 ### Linux (Winelib)
 
 ![wfc-mscomctl built and tested on Linux x64 with Winelib](docs/images/linux-winelib-x64.png)
