@@ -25,6 +25,12 @@ static const struct wfc_check_class kClasses[] = {
 };
 
 int main(int argc, char** argv) {
-    return wfc_check_dll(argc, argv, L"mscomctl", kClasses,
-                         sizeof(kClasses) / sizeof(kClasses[0]));
+    int checked = wfc_check_dll(argc, argv, L"mscomctl", kClasses,
+                                sizeof(kClasses) / sizeof(kClasses[0]));
+    if (checked != 0) {
+        return checked;
+    }
+    return wfc_check_create(wfc_check_widen(argv[1]),
+                            L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}",
+                            L"Enabled", L"Refresh");
 }
