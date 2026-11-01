@@ -324,7 +324,8 @@ const ui::ControlClass* library_control_class(const std::string_view library,
         // The controls of MSComCtl2 that are implemented so far.
         const std::string control = lower_text(std::string(leaf));
         return control == "updown" || control == "flatscrollbar" ||
-                       control == "monthview" || control == "dtpicker"
+                       control == "monthview" || control == "dtpicker" ||
+                       control == "animation"
                    ? comctl_class(leaf)
                    : nullptr;
     }
@@ -344,6 +345,12 @@ namespace {
 std::optional<Value> comctl_default(const std::string& class_name,
                                     const std::string& property) {
     static const std::map<std::string, std::map<std::string, Value>> table = {
+        {"animation",
+         {{"autoplay", Value{false}},
+          {"center", Value{false}},
+          {"backstyle", small(1)},
+          {"mousepointer", small(0)},
+          {"enabled", Value{true}}}},
         {"dtpicker",
          {{"format", small(0)},
           {"customformat", Value{std::string{}}},
@@ -3774,6 +3781,10 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
     }
     if (control.class_key == "dtpicker") {
         dtpicker_snapshot(control, snapshot);
+    }
+    if (control.class_key == "animation") {
+        snapshot.center = control_flag(control, "center");
+        snapshot.transparent = number_property(control, "backstyle") == 0.0;
     }
     if (control.class_key == "updown") {
         // cc2OrientationVertical is 0 for the UpDown (1 for the others).
