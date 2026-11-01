@@ -322,8 +322,10 @@ const ui::ControlClass* library_control_class(const std::string_view library,
     }
     if (name == "mscomctl2") {
         // The controls of MSComCtl2 that are implemented so far.
-        return lower_text(std::string(leaf)) == "updown" ? comctl_class(leaf)
-                                                         : nullptr;
+        const std::string control = lower_text(std::string(leaf));
+        return control == "updown" || control == "flatscrollbar"
+                   ? comctl_class(leaf)
+                   : nullptr;
     }
     return nullptr;
 }
@@ -341,6 +343,17 @@ namespace {
 std::optional<Value> comctl_default(const std::string& class_name,
                                     const std::string& property) {
     static const std::map<std::string, std::map<std::string, Value>> table = {
+        {"flatscrollbar",
+         {{"min", small(0)},
+          {"max", small(32767)},
+          {"value", small(0)},
+          {"largechange", small(1)},
+          {"smallchange", small(1)},
+          {"orientation", small(0)},
+          {"appearance", small(0)},
+          {"arrows", small(0)},
+          {"mousepointer", small(0)},
+          {"enabled", Value{true}}}},
         {"updown",
          {{"min", Value{Integer{0}}},
           {"max", Value{Integer{10}}},
