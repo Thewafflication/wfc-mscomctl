@@ -324,7 +324,7 @@ const ui::ControlClass* library_control_class(const std::string_view library,
         // The controls of MSComCtl2 that are implemented so far.
         const std::string control = lower_text(std::string(leaf));
         return control == "updown" || control == "flatscrollbar" ||
-                       control == "monthview"
+                       control == "monthview" || control == "dtpicker"
                    ? comctl_class(leaf)
                    : nullptr;
     }
@@ -344,6 +344,13 @@ namespace {
 std::optional<Value> comctl_default(const std::string& class_name,
                                     const std::string& property) {
     static const std::map<std::string, std::map<std::string, Value>> table = {
+        {"dtpicker",
+         {{"format", small(0)},
+          {"customformat", Value{std::string{}}},
+          {"checkbox", Value{false}},
+          {"updown", Value{false}},
+          {"mousepointer", small(0)},
+          {"enabled", Value{true}}}},
         {"monthview",
          {{"maxselcount", small(7)},
           {"multiselect", Value{false}},
@@ -1133,6 +1140,10 @@ void updown_sync_out(Interpreter& in, ControlObject& self);
                                    const std::string& action,
                                    const std::string& rest);
 void monthview_snapshot(ControlObject& self, ui::CommonSnapshot& snapshot);
+[[nodiscard]] bool dtpicker_input(Interpreter& in, ControlObject& self,
+                                  const std::string& action,
+                                  const std::string& rest);
+void dtpicker_snapshot(ControlObject& self, ui::CommonSnapshot& snapshot);
 [[nodiscard]] bool comctl_control_get(Interpreter& in, ControlObject& self,
                                       const std::string& member,
                                       std::vector<CallArgument>& arguments,
@@ -3447,6 +3458,9 @@ bool ComctlSupport::user_input(Interpreter& in, InstanceData& form,
     if (self.class_key == "monthview") {
         return monthview_input(in, self, action, rest);
     }
+    if (self.class_key == "dtpicker") {
+        return dtpicker_input(in, self, action, rest);
+    }
     if (self.class_key == "tabstrip" && action == "select") {
         if (const ItemPtr tab = select_by("tab")) {
             return select_tab(in, self, tab, true, failure);
@@ -3757,6 +3771,9 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
     snapshot.locked = control_flag(control, "locked");
     if (control.class_key == "monthview") {
         monthview_snapshot(control, snapshot);
+    }
+    if (control.class_key == "dtpicker") {
+        dtpicker_snapshot(control, snapshot);
     }
     if (control.class_key == "updown") {
         // cc2OrientationVertical is 0 for the UpDown (1 for the others).
