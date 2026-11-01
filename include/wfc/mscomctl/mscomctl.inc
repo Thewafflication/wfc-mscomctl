@@ -323,7 +323,8 @@ const ui::ControlClass* library_control_class(const std::string_view library,
     if (name == "mscomctl2") {
         // The controls of MSComCtl2 that are implemented so far.
         const std::string control = lower_text(std::string(leaf));
-        return control == "updown" || control == "flatscrollbar"
+        return control == "updown" || control == "flatscrollbar" ||
+                       control == "monthview"
                    ? comctl_class(leaf)
                    : nullptr;
     }
@@ -343,6 +344,19 @@ namespace {
 std::optional<Value> comctl_default(const std::string& class_name,
                                     const std::string& property) {
     static const std::map<std::string, std::map<std::string, Value>> table = {
+        {"monthview",
+         {{"maxselcount", small(7)},
+          {"multiselect", Value{false}},
+          {"showtoday", Value{true}},
+          {"showweeknumbers", Value{false}},
+          {"startofweek", small(1)},
+          {"monthrows", small(1)},
+          {"monthcolumns", small(1)},
+          {"scrollrate", small(1)},
+          {"appearance", small(1)},
+          {"borderstyle", small(0)},
+          {"mousepointer", small(0)},
+          {"enabled", Value{true}}}},
         {"flatscrollbar",
          {{"min", small(0)},
           {"max", small(32767)},
@@ -1108,18 +1122,24 @@ namespace {
                           std::vector<CallArgument>& arguments, Value& result,
                           NativeFailure& failure);
 [[nodiscard]] bool ocx_put(Interpreter& in, ControlObject& self,
-                           const std::string& member, const Value& value,
-                           NativeFailure& failure);
+                           const std::string& member,
+                           std::vector<CallArgument>& arguments,
+                           const Value& value, NativeFailure& failure);
 [[nodiscard]] bool updown_input(Interpreter& in, ControlObject& self,
                                 const std::string& action,
                                 const std::string& rest);
 void updown_sync_out(Interpreter& in, ControlObject& self);
+[[nodiscard]] bool monthview_input(Interpreter& in, ControlObject& self,
+                                   const std::string& action,
+                                   const std::string& rest);
+void monthview_snapshot(ControlObject& self, ui::CommonSnapshot& snapshot);
 [[nodiscard]] bool comctl_control_get(Interpreter& in, ControlObject& self,
                                       const std::string& member,
                                       std::vector<CallArgument>& arguments,
                                       Value& result, NativeFailure& failure);
 [[nodiscard]] bool comctl_control_put(Interpreter& in, ControlObject& self,
                                       const std::string& member,
+                                      std::vector<CallArgument>& arguments,
                                       const Value& value,
                                       NativeFailure& failure);
 
@@ -1315,7 +1335,7 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
             return true;
         }
     }
-    return comctl_control_put(in, self, member, value, failure);
+    return comctl_control_put(in, self, member, arguments, value, failure);
 }
 
 
@@ -3311,9 +3331,10 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
 }
 
 bool comctl_control_put(Interpreter& in, ControlObject& self,
-                        const std::string& member, const Value& value,
-                        NativeFailure& failure) {
-    if (ocx_put(in, self, member, value, failure)) {
+                        const std::string& member,
+                        std::vector<CallArgument>& arguments,
+                        const Value& value, NativeFailure& failure) {
+    if (ocx_put(in, self, member, arguments, value, failure)) {
         return true;
     }
     if (self.class_key == "listview" && list_put(in, self, member, value, failure)) {
@@ -3422,6 +3443,9 @@ bool ComctlSupport::user_input(Interpreter& in, InstanceData& form,
     }
     if (self.class_key == "updown") {
         return updown_input(in, self, action, rest);
+    }
+    if (self.class_key == "monthview") {
+        return monthview_input(in, self, action, rest);
     }
     if (self.class_key == "tabstrip" && action == "select") {
         if (const ItemPtr tab = select_by("tab")) {
@@ -3731,6 +3755,9 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
     snapshot.sel_length = static_cast<long>(number_property(control, "sellength"));
     snapshot.select_range = control_flag(control, "selectrange");
     snapshot.locked = control_flag(control, "locked");
+    if (control.class_key == "monthview") {
+        monthview_snapshot(control, snapshot);
+    }
     if (control.class_key == "updown") {
         // cc2OrientationVertical is 0 for the UpDown (1 for the others).
         snapshot.vertical = number_property(control, "orientation") == 0.0;
