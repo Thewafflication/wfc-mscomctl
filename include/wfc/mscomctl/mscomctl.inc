@@ -320,6 +320,11 @@ const ui::ControlClass* library_control_class(const std::string_view library,
         return lower_text(std::string(leaf)) == "winsock" ? comctl_class(leaf)
                                                           : nullptr;
     }
+    if (name == "mscomctl2") {
+        // The controls of MSComCtl2 that are implemented so far.
+        return lower_text(std::string(leaf)) == "updown" ? comctl_class(leaf)
+                                                         : nullptr;
+    }
     return nullptr;
 }
 
@@ -336,6 +341,19 @@ namespace {
 std::optional<Value> comctl_default(const std::string& class_name,
                                     const std::string& property) {
     static const std::map<std::string, std::map<std::string, Value>> table = {
+        {"updown",
+         {{"min", Value{Integer{0}}},
+          {"max", Value{Integer{10}}},
+          {"value", Value{Integer{0}}},
+          {"increment", Value{Integer{1}}},
+          {"acceleration", small(0)},
+          {"alignment", small(1)},
+          {"orientation", small(0)},
+          {"wrap", Value{false}},
+          {"autobuddy", Value{false}},
+          {"syncbuddy", Value{false}},
+          {"buddyproperty", Value{std::string{}}},
+          {"enabled", Value{true}}}},
         {"commondialog",
          {{"cancelerror", Value{false}},
           {"color", Value{Integer{0}}},
@@ -1079,6 +1097,9 @@ namespace {
 [[nodiscard]] bool ocx_put(Interpreter& in, ControlObject& self,
                            const std::string& member, const Value& value,
                            NativeFailure& failure);
+[[nodiscard]] bool updown_input(Interpreter& in, ControlObject& self,
+                                const std::string& action,
+                                const std::string& rest);
 [[nodiscard]] bool comctl_control_get(Interpreter& in, ControlObject& self,
                                       const std::string& member,
                                       std::vector<CallArgument>& arguments,
@@ -1190,7 +1211,8 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
     }
     const bool progress = self.class_key == "progressbar";
     const bool slider = self.class_key == "slider";
-    if ((progress || slider) &&
+    const bool updown = self.class_key == "updown";
+    if ((progress || slider || updown) &&
         (member == "value" || member == "min" || member == "max")) {
         Value converted = value;
         if (!coerce_row(in, self, member, converted, failure)) {
@@ -1225,7 +1247,7 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
             }
             self.values["value"] = clamped;
         }
-        if (slider && current != before &&
+        if ((slider || updown) && current != before &&
             !raise_event(in, self, "Change", {})) {
             failure = FormSupport::reported();
         }
@@ -3381,6 +3403,9 @@ bool ComctlSupport::user_input(Interpreter& in, InstanceData& form,
         }
         return true;
     }
+    if (self.class_key == "updown") {
+        return updown_input(in, self, action, rest);
+    }
     if (self.class_key == "tabstrip" && action == "select") {
         if (const ItemPtr tab = select_by("tab")) {
             return select_tab(in, self, tab, true, failure);
@@ -3689,6 +3714,13 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
     snapshot.sel_length = static_cast<long>(number_property(control, "sellength"));
     snapshot.select_range = control_flag(control, "selectrange");
     snapshot.locked = control_flag(control, "locked");
+    if (control.class_key == "updown") {
+        // cc2OrientationVertical is 0 for the UpDown (1 for the others).
+        snapshot.vertical = number_property(control, "orientation") == 0.0;
+        snapshot.wrap = control_flag(control, "wrap");
+        snapshot.small_change =
+            static_cast<long>(number_property(control, "increment"));
+    }
     const auto text = control.values.find("text");
     if (text != control.values.end() && std::holds_alternative<std::string>(text->second)) {
         snapshot.text = std::get<std::string>(text->second);
