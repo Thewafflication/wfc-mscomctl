@@ -1113,6 +1113,7 @@ namespace {
 [[nodiscard]] bool updown_input(Interpreter& in, ControlObject& self,
                                 const std::string& action,
                                 const std::string& rest);
+void updown_sync_out(Interpreter& in, ControlObject& self);
 [[nodiscard]] bool comctl_control_get(Interpreter& in, ControlObject& self,
                                       const std::string& member,
                                       std::vector<CallArgument>& arguments,
@@ -1259,6 +1260,9 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
                 static_cast<void>(coerce_property(in, clamped, row->type, ignored));
             }
             self.values["value"] = clamped;
+        }
+        if (updown) {
+            updown_sync_out(in, self);  // the buddy follows the value
         }
         if ((slider || updown) && current != before &&
             !raise_event(in, self, "Change", {})) {
