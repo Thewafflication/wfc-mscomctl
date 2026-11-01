@@ -1,5 +1,5 @@
-// Checks the member table of the Windows Common Controls library: its classes, and that every
-// class lists named members of a known kind.
+// Checks the member table of the Windows Common Controls library: its classes,
+// and that every class lists named members of a known kind.
 
 #include <wfc/mscomctl/mscomctl.hpp>
 
@@ -21,7 +21,9 @@ void expect(const bool condition, const char* what) {
 }  // namespace
 
 int main() {
-    static const char* const expected[] = {"TabStrip", "Toolbar", "StatusBar", "ProgressBar", "TreeView", "ListView", "ImageList", "Slider", "ImageCombo"};
+    static const char* const expected[] = {
+        "TabStrip", "Toolbar",   "StatusBar", "ProgressBar", "TreeView",
+        "ListView", "ImageList", "Slider",    "ImageCombo"};
     constexpr std::size_t kExpected = sizeof(expected) / sizeof(expected[0]);
     const auto classes = wfc::ui::mscomctl_classes();
     expect(classes.size() == kExpected, "the number of classes");
@@ -37,7 +39,8 @@ int main() {
                    "an unknown member kind");
         }
         for (std::size_t e = 0; e < entry.event_count; ++e) {
-            expect(entry.events[e].kind == 'm', "an event that is not a method");
+            expect(entry.events[e].kind == 'm',
+                   "an event that is not a method");
         }
     }
     if (failures == 0) {

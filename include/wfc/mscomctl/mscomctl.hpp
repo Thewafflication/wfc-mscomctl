@@ -1,5 +1,5 @@
-// The member table of the Windows Common Controls (mscomctl.ocx, library MSComctlLib).
-// Internal to the WFC runtime; not part of the public API.
+// The member table of the Windows Common Controls (mscomctl.ocx, library
+// MSComctlLib). Internal to the WFC runtime; not part of the public API.
 //
 // The table is plain data. It is linked statically into the program or, when
 // the library is built shared (WFC_MSCOMCTL_SHARED), loaded from
@@ -24,7 +24,8 @@
 
 namespace wfc::ui {
 
-// The classes of the library: TabStrip, Toolbar, StatusBar, ProgressBar, TreeView, ListView, ImageList, Slider, ImageCombo.
+// The classes of the library: TabStrip, Toolbar, StatusBar, ProgressBar,
+// TreeView, ListView, ImageList, Slider, ImageCombo.
 [[nodiscard]] WFC_MSCOMCTL_API std::span<const ControlClass> mscomctl_classes();
 
 }  // namespace wfc::ui
