@@ -10,14 +10,14 @@ namespace {
 
 struct PropSpec {
     const char* name;
-    const char* type;  // String, Long, Integer, Boolean, Single, Variant
+    const char* type;     // String, Long, Integer, Boolean, Single, Variant
     const char* initial;  // "" (empty / zero / False), "true", or a number
 };
 
 struct KindSpec {
-    const char* kind;        // "tab"
-    const char* item_name;   // "Tab" (TypeName)
-    const char* collection;  // "Tabs"
+    const char* kind;                         // "tab"
+    const char* item_name;                    // "Tab" (TypeName)
+    const char* collection;                   // "Tabs"
     std::vector<const char*> add_parameters;  // positional, lower case
     std::vector<PropSpec> props;
     const char* default_property;
@@ -91,8 +91,7 @@ const std::map<std::string, KindSpec>& kind_specs() {
          {"node",
           "Node",
           "Nodes",
-          {"relative", "relationship", "key", "text", "image",
-           "selectedimage"},
+          {"relative", "relationship", "key", "text", "image", "selectedimage"},
           {{"text", "String", ""},
            {"key", "String", ""},
            {"tag", "Variant", ""},
@@ -179,9 +178,9 @@ const std::map<std::string, KindSpec>& kind_specs() {
 
 // Which collection property of a control holds which kind of item.
 struct CollectionBinding {
-    const char* control;     // class key
-    const char* property;    // `Tabs`
-    const char* kind;        // `tab`
+    const char* control;   // class key
+    const char* property;  // `Tabs`
+    const char* kind;      // `tab`
 };
 
 const std::vector<CollectionBinding>& collection_bindings() {
@@ -227,7 +226,6 @@ struct ComctlState {
     std::vector<long> root_kids;  // tree: top-level node ids in order
 };
 
-
 std::vector<std::string> comctl_type_names() {
     std::vector<std::string> names;
     for (const auto& control : ui::comctl_classes()) {
@@ -243,7 +241,8 @@ std::vector<std::string> comctl_type_names() {
     return names;
 }
 
-// ----- Merged class tables -----------------------------------------------------
+// ----- Merged class tables
+// -----------------------------------------------------
 
 namespace {
 
@@ -332,7 +331,8 @@ const ui::ControlClass* library_control_class(const std::string_view library,
     return nullptr;
 }
 
-// ----- Defaults of the control properties -------------------------------------
+// ----- Defaults of the control properties
+// -------------------------------------
 
 namespace {
 
@@ -540,7 +540,8 @@ std::optional<Value> comctl_default(const std::string& class_name,
     return value->second;
 }
 
-// ----- Collections and items --------------------------------------------------
+// ----- Collections and items
+// --------------------------------------------------
 
 namespace {
 
@@ -612,7 +613,8 @@ struct ListRef {
     return *control.comctl;
 }
 
-[[nodiscard]] ControlObject* control_for(const std::weak_ptr<InstanceData>& owner) {
+[[nodiscard]] ControlObject* control_for(
+    const std::weak_ptr<InstanceData>& owner) {
     const auto data = owner.lock();
     return data != nullptr ? control_of(*data) : nullptr;
 }
@@ -638,8 +640,7 @@ struct ListRef {
 
 // Finds an item by index (number) or key (string).
 [[nodiscard]] ItemPtr find_item(const std::vector<ItemPtr>& items,
-                                const Value& selector,
-                                NativeFailure& failure) {
+                                const Value& selector, NativeFailure& failure) {
     if (const auto* text = std::get_if<std::string>(&selector)) {
         for (const auto& item : items) {
             if (same_key(item->p.at("key"), *text)) {
@@ -791,8 +792,8 @@ public:
 
 }  // namespace
 
-
-// ----- Generic collection and item behavior ------------------------------------
+// ----- Generic collection and item behavior
+// ------------------------------------
 
 namespace {
 
@@ -856,20 +857,23 @@ namespace {
         }
         const long wanted =
             static_cast<long>(std::nearbyint(as_double(index->second)));
-        if (wanted < 1 || static_cast<std::size_t>(wanted) > items.size() + 1U) {
+        if (wanted < 1 ||
+            static_cast<std::size_t>(wanted) > items.size() + 1U) {
             failure = NativeFailure{kIndexOutOfBounds, "Index out of bounds"};
             return false;
         }
         position = static_cast<std::size_t>(wanted) - 1U;
         if (ref.kind == "listimage" && control.values.contains("_bound") &&
             position != items.size()) {
-            failure = NativeFailure{kImageListBound,
-                                    "Images can only be appended to a bound ImageList"};
+            failure = NativeFailure{
+                kImageListBound,
+                "Images can only be appended to a bound ImageList"};
             return false;
         }
     }
     if (ref.kind == "panel" && items.size() >= 16U) {
-        failure = NativeFailure{kPanelsFull, "A status bar holds at most sixteen panels"};
+        failure = NativeFailure{kPanelsFull,
+                                "A status bar holds at most sixteen panels"};
         return false;
     }
     auto created = std::make_shared<CItem>();
@@ -898,18 +902,22 @@ namespace {
     }
     const auto& key = created->p.at("key");
     if (const auto* text = std::get_if<std::string>(&key);
-        text != nullptr && !text->empty() && key_in_use(items, *text, nullptr)) {
-        failure = NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
+        text != nullptr && !text->empty() &&
+        key_in_use(items, *text, nullptr)) {
+        failure =
+            NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
         return false;
     }
     if (ref.kind == "listimage") {
         const auto picture = created->p.find("picture");
-        if (picture == created->p.end() || picture_of(picture->second) == nullptr) {
+        if (picture == created->p.end() ||
+            picture_of(picture->second) == nullptr) {
             failure = NativeFailure{481, "Invalid picture"};
             return false;
         }
     }
-    items.insert(items.begin() + static_cast<std::ptrdiff_t>(position), created);
+    items.insert(items.begin() + static_cast<std::ptrdiff_t>(position),
+                 created);
     if (!ComctlHooks::after_add(in, control, ref.kind, created)) {
         failure = FormSupport::reported();
         return true;
@@ -926,14 +934,15 @@ bool ComctlItem::get(Interpreter& in, const std::string& member,
                      NativeFailure& failure) {
     ControlObject* control = control_for(ref.owner);
     if (control == nullptr) {
-        failure = NativeFailure{91, "Object variable or With block variable not set"};
+        failure =
+            NativeFailure{91, "Object variable or With block variable not set"};
         return true;
     }
     const KindSpec& spec = spec_of(ref.kind);
     const std::string name =
         member == "_default" ? std::string(spec.default_property) : member;
-    if (ComctlHooks::item_get(in, *control, ref.kind, item, ref, name, arguments,
-                              result, failure)) {
+    if (ComctlHooks::item_get(in, *control, ref.kind, item, ref, name,
+                              arguments, result, failure)) {
         if (!arguments.empty()) {
             // `Button.ButtonMenus("key")`: the arguments index a collection.
             const auto* holder = std::get_if<ObjectInstance>(&result);
@@ -949,8 +958,8 @@ bool ComctlItem::get(Interpreter& in, const std::string& member,
         return true;
     }
     if (name == "index") {
-        result = Value{static_cast<Integer>(
-            position_of(list_of(*control, ref), item))};
+        result = Value{
+            static_cast<Integer>(position_of(list_of(*control, ref), item))};
         return true;
     }
     if (find_property(spec, name) != nullptr) {
@@ -965,14 +974,15 @@ bool ComctlItem::put(Interpreter& in, const std::string& member,
                      NativeFailure& failure) {
     ControlObject* control = control_for(ref.owner);
     if (control == nullptr) {
-        failure = NativeFailure{91, "Object variable or With block variable not set"};
+        failure =
+            NativeFailure{91, "Object variable or With block variable not set"};
         return true;
     }
     const KindSpec& spec = spec_of(ref.kind);
     const std::string name =
         member == "_default" ? std::string(spec.default_property) : member;
-    if (ComctlHooks::item_put(in, *control, ref.kind, item, ref, name, arguments,
-                              value, failure)) {
+    if (ComctlHooks::item_put(in, *control, ref.kind, item, ref, name,
+                              arguments, value, failure)) {
         if (failure.number == 0) {
             ComctlHooks::changed(in, *control);
         }
@@ -990,7 +1000,8 @@ bool ComctlItem::put(Interpreter& in, const std::string& member,
         const auto* text = std::get_if<std::string>(&converted);
         if (text != nullptr && !text->empty() &&
             key_in_use(list_of(*control, ref), *text, item)) {
-            failure = NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
+            failure =
+                NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
             return true;
         }
     }
@@ -1004,7 +1015,8 @@ bool ComctlCollection::get(Interpreter& in, const std::string& member,
                            NativeFailure& failure) {
     ControlObject* control = control_for(ref.owner);
     if (control == nullptr) {
-        failure = NativeFailure{91, "Object variable or With block variable not set"};
+        failure =
+            NativeFailure{91, "Object variable or With block variable not set"};
         return true;
     }
     auto& items = list_of(*control, ref);
@@ -1040,8 +1052,8 @@ bool ComctlCollection::get(Interpreter& in, const std::string& member,
     }
     if ((member == "remove" || member == "clear") && ref.kind == "listimage" &&
         control->values.contains("_bound")) {
-        failure = NativeFailure{kImageListBound,
-                                "Images cannot be removed from a bound ImageList"};
+        failure = NativeFailure{
+            kImageListBound, "Images cannot be removed from a bound ImageList"};
         return true;
     }
     if (member == "remove") {
@@ -1083,7 +1095,8 @@ bool ComctlCollection::get(Interpreter& in, const std::string& member,
                                        result, failure);
 }
 
-// ----- ComctlSupport ----------------------------------------------------------
+// ----- ComctlSupport
+// ----------------------------------------------------------
 
 void ComctlSupport::from_host(ControlObject& control, const bool on) {
     if (control.comctl != nullptr) {
@@ -1132,9 +1145,9 @@ namespace {
 }  // namespace
 
 [[nodiscard]] bool ocx_get(Interpreter& in, ControlObject& self,
-                          const std::string& member,
-                          std::vector<CallArgument>& arguments, Value& result,
-                          NativeFailure& failure);
+                           const std::string& member,
+                           std::vector<CallArgument>& arguments, Value& result,
+                           NativeFailure& failure);
 [[nodiscard]] bool ocx_put(Interpreter& in, ControlObject& self,
                            const std::string& member,
                            std::vector<CallArgument>& arguments,
@@ -1143,6 +1156,7 @@ namespace {
                                 const std::string& action,
                                 const std::string& rest);
 void updown_sync_out(Interpreter& in, ControlObject& self);
+[[nodiscard]] wfc::mscomctl2::UpDownModel updown_model(ControlObject& self);
 [[nodiscard]] bool monthview_input(Interpreter& in, ControlObject& self,
                                    const std::string& action,
                                    const std::string& rest);
@@ -1188,14 +1202,14 @@ bool ComctlSupport::get(Interpreter& in, ControlObject& self,
             (member == "selstart" || member == "sellength")) {
             // Without a selection range SelStart follows Value.
             result = member == "selstart" ? self.values.contains("value")
-                                                 ? self.values.at("value")
-                                                 : Value{Integer{0}}
+                                                ? self.values.at("value")
+                                                : Value{Integer{0}}
                                           : Value{Integer{0}};
             return true;
         }
         if (member == "getnumticks") {
-            const double span = number_property(self, "max") -
-                                number_property(self, "min");
+            const double span =
+                number_property(self, "max") - number_property(self, "min");
             const double step =
                 std::max(1.0, number_property(self, "tickfrequency"));
             result = Value{static_cast<Integer>(std::floor(span / step) + 1.0)};
@@ -1236,7 +1250,8 @@ bool ComctlSupport::get(Interpreter& in, ControlObject& self,
             ref.kind = "listimage";
             auto& items = list_of(self, ref);
             const ItemPtr first = find_item(items, arguments[0].value, failure);
-            const ItemPtr second = find_item(items, arguments[1].value, failure);
+            const ItemPtr second =
+                find_item(items, arguments[1].value, failure);
             if (first != nullptr && second != nullptr) {
                 result = first->p.at("picture");
             }
@@ -1274,13 +1289,27 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
         double maximum = number_property(self, "max");
         double current = number_property(self, "value");
         const double wanted = as_double(converted);
-        if (member == "min") {
+        if (updown) {
+            // The rules of the UpDown are the library's (updown.hpp).
+            auto model = updown_model(self);
+            const long number = static_cast<long>(wanted);
+            const auto outcome = member == "min"   ? model.set_min(number)
+                                 : member == "max" ? model.set_max(number)
+                                                   : model.set_value(number);
+            if (!outcome.valid) {
+                failure = NativeFailure{380, "Invalid property value"};
+                return true;
+            }
+            minimum = static_cast<double>(model.min());
+            maximum = static_cast<double>(model.max());
+        } else if (member == "min") {
             minimum = wanted;
         } else if (member == "max") {
             maximum = wanted;
         }
-        if (minimum > maximum ||
-            (member == "value" && (wanted < minimum || wanted > maximum))) {
+        if (!updown &&
+            (minimum > maximum ||
+             (member == "value" && (wanted < minimum || wanted > maximum)))) {
             failure = NativeFailure{380, "Invalid property value"};
             return true;
         }
@@ -1295,7 +1324,8 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
             Value clamped{current};
             NativeFailure ignored;
             if (row != nullptr) {
-                static_cast<void>(coerce_property(in, clamped, row->type, ignored));
+                static_cast<void>(
+                    coerce_property(in, clamped, row->type, ignored));
             }
             self.values["value"] = clamped;
         }
@@ -1348,17 +1378,17 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
         ListRef ref;
         ref.kind = "listimage";
         if (!list_of(self, ref).empty()) {
-            failure = NativeFailure{kReadOnlyAfterUse,
-                                    "Property is read-only after images are added"};
+            failure =
+                NativeFailure{kReadOnlyAfterUse,
+                              "Property is read-only after images are added"};
             return true;
         }
     }
     return comctl_control_put(in, self, member, arguments, value, failure);
 }
 
-
-
-// ----- Per-kind behavior ------------------------------------------------------------
+// ----- Per-kind behavior
+// ------------------------------------------------------------
 
 namespace {
 
@@ -1379,7 +1409,8 @@ struct HookCtx {
 
 [[nodiscard]] bool flag(const ItemPtr& item, const char* name) {
     const auto found = item->p.find(name);
-    return found != item->p.end() && std::holds_alternative<bool>(found->second) &&
+    return found != item->p.end() &&
+           std::holds_alternative<bool>(found->second) &&
            std::get<bool>(found->second);
 }
 
@@ -1395,9 +1426,12 @@ struct HookCtx {
     return wrap_item(ctx.ref.owner.lock(), ref, item);
 }
 
-[[nodiscard]] Value nothing_value() { return Value{Nothing{}}; }
+[[nodiscard]] Value nothing_value() {
+    return Value{Nothing{}};
+}
 
-// ----- TabStrip -----------------------------------------------------------------
+// ----- TabStrip
+// -----------------------------------------------------------------
 
 struct TabRect {
     double left{0};
@@ -1417,9 +1451,10 @@ struct TabRect {
         static_cast<long>(number_property(control, "tabwidthstyle"));
     const double height = fixed_height > 0.0 ? fixed_height : 300.0;
     const double total = number_property(control, "width");
-    const bool multi = control.values.contains("multirow") &&
-                       std::holds_alternative<bool>(control.values.at("multirow")) &&
-                       std::get<bool>(control.values.at("multirow"));
+    const bool multi =
+        control.values.contains("multirow") &&
+        std::holds_alternative<bool>(control.values.at("multirow")) &&
+        std::get<bool>(control.values.at("multirow"));
     double x = 0.0;
     double y = 0.0;
     for (const auto& tab : top_list(control, "tab")) {
@@ -1431,10 +1466,11 @@ struct TabRect {
         const std::string text = std::holds_alternative<std::string>(caption)
                                      ? std::get<std::string>(caption)
                                      : std::string{};
-        double width = width_style == 2 && fixed_width > 0.0
-                           ? fixed_width
-                           : std::max(minimum > 0.0 ? minimum : 600.0,
-                                      120.0 + 95.0 * static_cast<double>(text.size()));
+        double width =
+            width_style == 2 && fixed_width > 0.0
+                ? fixed_width
+                : std::max(minimum > 0.0 ? minimum : 600.0,
+                           120.0 + 95.0 * static_cast<double>(text.size()));
         if (multi && x > 0.0 && x + width > total && total > 0.0) {
             x = 0.0;
             y += height;
@@ -1495,9 +1531,10 @@ struct TabRect {
                            Value& result) {
     const auto rects = tab_layout(ctx.control);
     const long position = position_of(top_list(ctx.control, "tab"), ctx.item);
-    const TabRect rect = position >= 1 && static_cast<std::size_t>(position) <= rects.size()
-                             ? rects[static_cast<std::size_t>(position) - 1U]
-                             : TabRect{};
+    const TabRect rect =
+        position >= 1 && static_cast<std::size_t>(position) <= rects.size()
+            ? rects[static_cast<std::size_t>(position) - 1U]
+            : TabRect{};
     if (member == "left") {
         result = Value{static_cast<float>(rect.left)};
     } else if (member == "top") {
@@ -1512,7 +1549,8 @@ struct TabRect {
     return true;
 }
 
-// ----- StatusBar ----------------------------------------------------------------
+// ----- StatusBar
+// ----------------------------------------------------------------
 
 [[nodiscard]] bool panel_get(HookCtx& ctx, const std::string& member,
                              Value& result) {
@@ -1533,7 +1571,8 @@ struct TabRect {
     return false;
 }
 
-// ----- Toolbar ------------------------------------------------------------------
+// ----- Toolbar
+// ------------------------------------------------------------------
 
 constexpr int kStyleDefault = 0;
 constexpr int kStyleCheck = 1;
@@ -1580,10 +1619,9 @@ constexpr int kStyleDropdown = 5;
         }
         const int style = button_style(button);
         const auto caption = button->p.at("caption");
-        const std::size_t length =
-            std::holds_alternative<std::string>(caption)
-                ? std::get<std::string>(caption).size()
-                : 0U;
+        const std::size_t length = std::holds_alternative<std::string>(caption)
+                                       ? std::get<std::string>(caption).size()
+                                       : 0U;
         double width = 360.0;
         if (style == kStyleSeparator) {
             width = 120.0;
@@ -1704,7 +1742,8 @@ std::map<std::string, std::string>& saved_toolbars() {
         name += FormSupport::text_of(argument.value) + "/";
     }
     const std::string registry_key = FormSupport::text_of(arguments[0].value);
-    const std::string registry_subkey = FormSupport::text_of(arguments[1].value);
+    const std::string registry_subkey =
+        FormSupport::text_of(arguments[1].value);
     const std::string registry_value = FormSupport::text_of(arguments[2].value);
     result = Value{Empty{}};
     if (member == "savetoolbar") {
@@ -1811,7 +1850,8 @@ std::map<std::string, std::string>& saved_toolbars() {
     return true;
 }
 
-// ----- Label editing (TreeView and ListView) ---------------------------------------
+// ----- Label editing (TreeView and ListView)
+// ---------------------------------------
 
 // Starts an edit: BeforeLabelEdit(Cancel). `started` tells whether it was not
 // cancelled; false return means an error was raised.
@@ -1824,7 +1864,8 @@ std::map<std::string, std::string>& saved_toolbars() {
     }
     std::vector<Value> before{Value{Int16{0}}};
     if (!FormSupport::raise(in, *form, control.name, control.index,
-                            "beforelabeledit", before, FormSupport::offset_of(in))) {
+                            "beforelabeledit", before,
+                            FormSupport::offset_of(in))) {
         return false;
     }
     if (whole_value(before[0]).value_or(0) != 0) {
@@ -1846,10 +1887,12 @@ std::map<std::string, std::string>& saved_toolbars() {
     if (form == nullptr) {
         return true;
     }
-    std::vector<Value> after{Value{Int16{0}},
-                             text.has_value() ? Value{*text} : Value{std::string{}}};
+    std::vector<Value> after{Value{Int16{0}}, text.has_value()
+                                                  ? Value{*text}
+                                                  : Value{std::string{}}};
     if (!FormSupport::raise(in, *form, control.name, control.index,
-                            "afterlabeledit", after, FormSupport::offset_of(in))) {
+                            "afterlabeledit", after,
+                            FormSupport::offset_of(in))) {
         return false;
     }
     if (text.has_value() && whole_value(after[0]).value_or(0) == 0) {
@@ -1860,7 +1903,8 @@ std::map<std::string, std::string>& saved_toolbars() {
     return true;
 }
 
-// ----- TreeView -----------------------------------------------------------------
+// ----- TreeView
+// -----------------------------------------------------------------
 
 [[nodiscard]] ItemPtr node_by_id(ControlObject& control, const long id) {
     for (const auto& node : top_list(control, "node")) {
@@ -1887,8 +1931,9 @@ std::map<std::string, std::string>& saved_toolbars() {
 
 [[nodiscard]] std::string node_text(const ItemPtr& node) {
     const auto& text = node->p.at("text");
-    return std::holds_alternative<std::string>(text) ? std::get<std::string>(text)
-                                                     : std::string{};
+    return std::holds_alternative<std::string>(text)
+               ? std::get<std::string>(text)
+               : std::string{};
 }
 
 void sort_kids(ControlObject& control, std::vector<long>& kids) {
@@ -1909,8 +1954,8 @@ void sort_kids(ControlObject& control, std::vector<long>& kids) {
 
 // Nodes in display order with their depth; children of collapsed nodes are
 // left out.
-void visible_rows(ControlObject& control, const ItemPtr& parent, const int depth,
-                  std::vector<std::pair<ItemPtr, int>>& rows) {
+void visible_rows(ControlObject& control, const ItemPtr& parent,
+                  const int depth, std::vector<std::pair<ItemPtr, int>>& rows) {
     for (const long id : kids_of(control, parent)) {
         const ItemPtr node = node_by_id(control, id);
         if (node == nullptr) {
@@ -1999,7 +2044,8 @@ void select_node(ControlObject& control, const ItemPtr& node) {
                 failure = NativeFailure{13, "Type mismatch"};
                 return false;
             }
-            relationship = static_cast<long>(std::nearbyint(as_double(way->second)));
+            relationship =
+                static_cast<long>(std::nearbyint(as_double(way->second)));
             if (relationship < 0 || relationship > 4) {
                 failure = NativeFailure{35607, "Invalid relationship"};
                 return false;
@@ -2031,8 +2077,10 @@ void select_node(ControlObject& control, const ItemPtr& node) {
         created->p[name] = std::move(converted);
     }
     if (const auto* text = std::get_if<std::string>(&created->p.at("key"));
-        text != nullptr && !text->empty() && key_in_use(nodes, *text, nullptr)) {
-        failure = NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
+        text != nullptr && !text->empty() &&
+        key_in_use(nodes, *text, nullptr)) {
+        failure =
+            NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
         return false;
     }
     // Place the node in the tree.
@@ -2049,7 +2097,8 @@ void select_node(ControlObject& control, const ItemPtr& node) {
         auto& siblings = kids_of(control, parent);
         const auto where =
             std::find(siblings.begin(), siblings.end(), relative->id);
-        const std::size_t position = static_cast<std::size_t>(where - siblings.begin());
+        const std::size_t position =
+            static_cast<std::size_t>(where - siblings.begin());
         if (relationship == 0) {
             at = 0;
         } else if (relationship == 1) {
@@ -2062,7 +2111,8 @@ void select_node(ControlObject& control, const ItemPtr& node) {
     }
     created->parent = parent == nullptr ? 0 : parent->id;
     auto& siblings = kids_of(control, parent);
-    siblings.insert(siblings.begin() + static_cast<std::ptrdiff_t>(at), created->id);
+    siblings.insert(siblings.begin() + static_cast<std::ptrdiff_t>(at),
+                    created->id);
     nodes.push_back(created);
     if (tree_sorted(control) || (parent != nullptr && flag(parent, "sorted"))) {
         sort_kids(control, siblings);
@@ -2087,7 +2137,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
     };
     collect(collect, node);
     for (const auto& child : doomed) {
-        nodes.erase(std::remove(nodes.begin(), nodes.end(), child), nodes.end());
+        nodes.erase(std::remove(nodes.begin(), nodes.end(), child),
+                    nodes.end());
     }
     node->kids.clear();
     auto& siblings = kids_of(control, node_parent(control, node));
@@ -2095,7 +2146,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
                    siblings.end());
 }
 
-[[nodiscard]] std::string full_path(ControlObject& control, const ItemPtr& node) {
+[[nodiscard]] std::string full_path(ControlObject& control,
+                                    const ItemPtr& node) {
     std::string separator = "\\";
     if (const auto found = control.values.find("pathseparator");
         found != control.values.end() &&
@@ -2129,9 +2181,10 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
     } else if (member == "children") {
         result = Value{static_cast<Integer>(node->kids.size())};
     } else if (member == "child") {
-        result = node_value(control, node->kids.empty()
-                                         ? nullptr
-                                         : node_by_id(control, node->kids.front()));
+        result =
+            node_value(control, node->kids.empty()
+                                    ? nullptr
+                                    : node_by_id(control, node->kids.front()));
     } else if (member == "next") {
         result = node_value(control, known && where + 1 != siblings.end()
                                          ? node_by_id(control, *(where + 1))
@@ -2141,11 +2194,13 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
                                          ? node_by_id(control, *(where - 1))
                                          : nullptr);
     } else if (member == "firstsibling") {
-        result = node_value(control, siblings.empty() ? nullptr
-                                                      : node_by_id(control, siblings.front()));
+        result = node_value(
+            control,
+            siblings.empty() ? nullptr : node_by_id(control, siblings.front()));
     } else if (member == "lastsibling") {
-        result = node_value(control, siblings.empty() ? nullptr
-                                                      : node_by_id(control, siblings.back()));
+        result = node_value(
+            control,
+            siblings.empty() ? nullptr : node_by_id(control, siblings.back()));
     } else if (member == "root") {
         ItemPtr at = node;
         while (node_parent(control, at) != nullptr) {
@@ -2159,10 +2214,12 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
         if (control.values.contains("scroll") &&
             std::holds_alternative<bool>(control.values.at("scroll")) &&
             !std::get<bool>(control.values.at("scroll"))) {
-            result = Value{false};  // EnsureVisible does not work without Scroll
+            result =
+                Value{false};  // EnsureVisible does not work without Scroll
             return true;
         }
-        for (ItemPtr at = parent; at != nullptr; at = node_parent(control, at)) {
+        for (ItemPtr at = parent; at != nullptr;
+             at = node_parent(control, at)) {
             if (!flag(at, "expanded")) {
                 at->p["expanded"] = Value{true};
                 changed = true;
@@ -2232,8 +2289,11 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
         std::vector<std::pair<ItemPtr, int>> rows;
         visible_rows(self, nullptr, 0, rows);
         const double height = number_property(self, "height");
-        const std::size_t fits = height > 0.0 ? static_cast<std::size_t>(height / 240.0) : rows.size();
-        result = Value{static_cast<Integer>(std::min(rows.size(), std::max<std::size_t>(fits, 1)))};
+        const std::size_t fits = height > 0.0
+                                     ? static_cast<std::size_t>(height / 240.0)
+                                     : rows.size();
+        result = Value{static_cast<Integer>(
+            std::min(rows.size(), std::max<std::size_t>(fits, 1)))};
         return true;
     }
     if (member == "hittest") {
@@ -2250,10 +2310,13 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
                                   : 285.0;
         result = Value{Nothing{}};
         const double row = std::floor(y / 240.0);
-        if (y >= 0.0 && row >= 0.0 && static_cast<std::size_t>(row) < rows.size()) {
+        if (y >= 0.0 && row >= 0.0 &&
+            static_cast<std::size_t>(row) < rows.size()) {
             const auto& [node, depth] = rows[static_cast<std::size_t>(row)];
             const double left = static_cast<double>(depth + 1) * indent;
-            const double right = left + 120.0 + 95.0 * static_cast<double>(node_text(node).size());
+            const double right =
+                left + 120.0 +
+                95.0 * static_cast<double>(node_text(node).size());
             if (x >= left && x < right) {
                 result = node_value(self, node);
             }
@@ -2272,7 +2335,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
 }
 
 [[nodiscard]] bool tree_input(Interpreter& in, ControlObject& self,
-                              const std::string& action, const std::string& rest) {
+                              const std::string& action,
+                              const std::string& rest) {
     NativeFailure ignored;
     auto& nodes = top_list(self, "node");
     const auto pick = [&](const std::string& text) {
@@ -2315,13 +2379,15 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
     }
     if (action == "expand" || action == "collapse") {
         const ItemPtr node = pick(rest);
-        return node == nullptr || set_expanded(in, self, node, action == "expand");
+        return node == nullptr ||
+               set_expanded(in, self, node, action == "expand");
     }
     if (action == "check") {
         const ItemPtr node = pick(rest);
-        const bool boxes = self.values.contains("checkboxes") &&
-                           std::holds_alternative<bool>(self.values.at("checkboxes")) &&
-                           std::get<bool>(self.values.at("checkboxes"));
+        const bool boxes =
+            self.values.contains("checkboxes") &&
+            std::holds_alternative<bool>(self.values.at("checkboxes")) &&
+            std::get<bool>(self.values.at("checkboxes"));
         if (node == nullptr || !boxes) {
             return true;
         }
@@ -2381,7 +2447,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
         if (key == "down") {
             select_node(self, rows[(at + 1U) % rows.size()].first);
         } else if (key == "up") {
-            select_node(self, rows[(at + rows.size() - 1U) % rows.size()].first);
+            select_node(self,
+                        rows[(at + rows.size() - 1U) % rows.size()].first);
         } else if (key.size() == 1U && key != " ") {
             // Type-ahead: the next visible node starting with the character.
             for (std::size_t step = 1; step <= rows.size(); ++step) {
@@ -2411,12 +2478,14 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
                 select_node(self, parent);
             }
         } else if (key == "space") {
-            const bool boxes = self.values.contains("checkboxes") &&
-                               std::holds_alternative<bool>(self.values.at("checkboxes")) &&
-                               std::get<bool>(self.values.at("checkboxes"));
+            const bool boxes =
+                self.values.contains("checkboxes") &&
+                std::holds_alternative<bool>(self.values.at("checkboxes")) &&
+                std::get<bool>(self.values.at("checkboxes"));
             if (boxes) {
                 current->p["checked"] = Value{!flag(current, "checked")};
-                return raise_event(in, self, "NodeCheck", {node_value(self, current)});
+                return raise_event(in, self, "NodeCheck",
+                                   {node_value(self, current)});
             }
         }
         return true;
@@ -2424,9 +2493,11 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
     return true;
 }
 
-// ----- ListView -----------------------------------------------------------------
+// ----- ListView
+// -----------------------------------------------------------------
 
-[[nodiscard]] Value list_item_value(ControlObject& control, const ItemPtr& item) {
+[[nodiscard]] Value list_item_value(ControlObject& control,
+                                    const ItemPtr& item) {
     if (item == nullptr) {
         return Value{Nothing{}};
     }
@@ -2444,13 +2515,15 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
 }
 
 // The text a list item sorts by: its own text (SortKey 0) or a sub item's.
-[[nodiscard]] std::string sort_text(ControlObject& control, const ItemPtr& item) {
+[[nodiscard]] std::string sort_text(ControlObject& control,
+                                    const ItemPtr& item) {
     const long key = static_cast<long>(number_property(control, "sortkey"));
     if (key <= 0) {
         return lower_text(text_of_prop(item, "text"));
     }
     if (static_cast<std::size_t>(key) <= item->sub.size()) {
-        return lower_text(text_of_prop(item->sub[static_cast<std::size_t>(key) - 1U], "text"));
+        return lower_text(text_of_prop(
+            item->sub[static_cast<std::size_t>(key) - 1U], "text"));
     }
     return {};
 }
@@ -2483,12 +2556,15 @@ void sort_list_items(ControlObject& control) {
     }
     const double cell_width = view == 0 ? 1200.0 : 1440.0;
     const double cell_height = view == 0 ? 1100.0 : 240.0;
-    const long per_row = std::max<long>(1, static_cast<long>(width / cell_width));
-    const long per_column = std::max<long>(1, static_cast<long>((height > 0 ? height : 2400.0) / cell_height));
+    const long per_row =
+        std::max<long>(1, static_cast<long>(width / cell_width));
+    const long per_column = std::max<long>(
+        1, static_cast<long>((height > 0 ? height : 2400.0) / cell_height));
     for (std::size_t i = 0; i < items.size(); ++i) {
         const long n = static_cast<long>(i);
         if (view == 3) {
-            rects.push_back({0.0, header + 240.0 * static_cast<double>(n), row_width, 240.0});
+            rects.push_back({0.0, header + 240.0 * static_cast<double>(n),
+                             row_width, 240.0});
         } else if (view == 2) {
             rects.push_back({cell_width * static_cast<double>(n / per_column),
                              cell_height * static_cast<double>(n % per_column),
@@ -2511,10 +2587,12 @@ void sort_list_items(ControlObject& control) {
     return nullptr;
 }
 
-void select_list_item(ControlObject& control, const ItemPtr& item, const bool extend) {
+void select_list_item(ControlObject& control, const ItemPtr& item,
+                      const bool extend) {
     for (const auto& other : top_list(control, "listitem")) {
         if (other == item) {
-            other->p["selected"] = Value{extend ? !flag(other, "selected") : true};
+            other->p["selected"] =
+                Value{extend ? !flag(other, "selected") : true};
         } else if (!extend) {
             other->p["selected"] = Value{false};
         }
@@ -2536,8 +2614,10 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
             failure = NativeFailure{kIndexOutOfBounds, "Index out of bounds"};
             return true;
         }
-        result = index == 0 ? item->p.at("text")
-                            : item->sub[static_cast<std::size_t>(index) - 1U]->p.at("text");
+        result =
+            index == 0
+                ? item->p.at("text")
+                : item->sub[static_cast<std::size_t>(index) - 1U]->p.at("text");
         arguments.clear();
         return true;
     }
@@ -2548,15 +2628,17 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
         result = wrap_collection(ctx.ref.owner.lock(), ref);
         return true;
     }
-    if (member == "left" || member == "top" || member == "width" || member == "height") {
+    if (member == "left" || member == "top" || member == "width" ||
+        member == "height") {
         const auto rects = list_layout(control);
         const long position = position_of(top_list(control, "listitem"), item);
         TabRect rect;
-        if (position >= 1 && static_cast<std::size_t>(position) <= rects.size()) {
+        if (position >= 1 &&
+            static_cast<std::size_t>(position) <= rects.size()) {
             rect = rects[static_cast<std::size_t>(position) - 1U];
         }
-        result = Value{static_cast<float>(member == "left" ? rect.left
-                                          : member == "top" ? rect.top
+        result = Value{static_cast<float>(member == "left"    ? rect.left
+                                          : member == "top"   ? rect.top
                                           : member == "width" ? rect.width
                                                               : rect.height)};
         return true;
@@ -2606,7 +2688,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
         item->sub[static_cast<std::size_t>(index) - 1U]->p["text"] = text;
         return true;
     }
-    if (member == "left" || member == "top" || member == "width" || member == "height") {
+    if (member == "left" || member == "top" || member == "width" ||
+        member == "height") {
         failure = NativeFailure{383, "Property is read-only"};
         return true;
     }
@@ -2672,10 +2755,12 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
             failure = NativeFailure{450, "Wrong number of arguments"};
             return true;
         }
-        const std::string wanted = lower_text(FormSupport::text_of(arguments[0].value));
-        const long where = arguments.size() > 1U && !arguments[1].omitted
-                               ? static_cast<long>(as_double(arguments[1].value))
-                               : 0;
+        const std::string wanted =
+            lower_text(FormSupport::text_of(arguments[0].value));
+        const long where =
+            arguments.size() > 1U && !arguments[1].omitted
+                ? static_cast<long>(as_double(arguments[1].value))
+                : 0;
         const bool partial = arguments.size() > 3U && !arguments[3].omitted &&
                              as_double(arguments[3].value) != 0.0;
         auto& items = top_list(self, "listitem");
@@ -2697,7 +2782,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
                     candidates.push_back(text_of_prop(sub, "text"));
                 }
             } else {
-                candidates.push_back(FormSupport::text_of(items[i]->p.at("tag")));
+                candidates.push_back(
+                    FormSupport::text_of(items[i]->p.at("tag")));
             }
             for (const auto& candidate : candidates) {
                 const std::string text = lower_text(candidate);
@@ -2778,12 +2864,14 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
     }
     if (member == "sorted" || member == "sortkey" || member == "sortorder") {
         Value converted = value;
-        if (!coerce_property(in, converted, member == "sorted" ? "Boolean" : "Integer",
+        if (!coerce_property(in, converted,
+                             member == "sorted" ? "Boolean" : "Integer",
                              failure)) {
             return true;
         }
-        self.values[member] = member == "sorted" ? converted
-                                                 : normalized(converted, "XConstants");
+        self.values[member] = member == "sorted"
+                                  ? converted
+                                  : normalized(converted, "XConstants");
         if (control_flag(self, "sorted")) {
             sort_list_items(self);
         }
@@ -2793,7 +2881,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
 }
 
 [[nodiscard]] bool list_input(Interpreter& in, ControlObject& self,
-                              const std::string& action, const std::string& rest) {
+                              const std::string& action,
+                              const std::string& rest) {
     NativeFailure ignored;
     auto& items = top_list(self, "listitem");
     const auto pick = [&](const std::string& text) {
@@ -2809,9 +2898,12 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
             return true;
         }
         const bool second_click = flag(item, "selected") && modifier != "ctrl";
-        select_list_item(self, item, modifier == "ctrl" && control_flag(self, "multiselect"));
-        bool ok = raise_event(in, self, "ItemClick", {list_item_value(self, item)}) &&
-                  raise_event(in, self, "Click", {});
+        select_list_item(
+            self, item,
+            modifier == "ctrl" && control_flag(self, "multiselect"));
+        bool ok =
+            raise_event(in, self, "ItemClick", {list_item_value(self, item)}) &&
+            raise_event(in, self, "Click", {});
         if (ok && action == "dblclick") {
             ok = raise_event(in, self, "DblClick", {});
         }
@@ -2828,11 +2920,12 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
             return true;
         }
         item->p["checked"] = Value{!flag(item, "checked")};
-        return raise_event(in, self, "ItemCheck", {list_item_value(self, item)});
+        return raise_event(in, self, "ItemCheck",
+                           {list_item_value(self, item)});
     }
     if (action == "columnclick") {
-        const ItemPtr column =
-            find_item(top_list(self, "columnheader"), selector_of(rest), ignored);
+        const ItemPtr column = find_item(top_list(self, "columnheader"),
+                                         selector_of(rest), ignored);
         if (column == nullptr) {
             return true;
         }
@@ -2873,9 +2966,11 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
     return true;
 }
 
-// ----- ImageCombo ---------------------------------------------------------------
+// ----- ImageCombo
+// ---------------------------------------------------------------
 
-[[nodiscard]] Value combo_item_value(ControlObject& control, const ItemPtr& item) {
+[[nodiscard]] Value combo_item_value(ControlObject& control,
+                                     const ItemPtr& item) {
     if (item == nullptr) {
         return Value{Nothing{}};
     }
@@ -2926,7 +3021,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
     }
     if (member == "getfirstvisible") {
         const auto& items = top_list(self, "comboitem");
-        result = combo_item_value(self, items.empty() ? nullptr : items.front());
+        result =
+            combo_item_value(self, items.empty() ? nullptr : items.front());
         return true;
     }
     if (member == "text") {
@@ -2935,9 +3031,10 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
     }
     if (member == "seltext") {
         const std::string text = combo_text(self);
-        const std::size_t start = std::min<std::size_t>(
-            static_cast<std::size_t>(std::max(0.0, number_property(self, "selstart"))),
-            text.size());
+        const std::size_t start =
+            std::min<std::size_t>(static_cast<std::size_t>(std::max(
+                                      0.0, number_property(self, "selstart"))),
+                                  text.size());
         const std::size_t length = static_cast<std::size_t>(
             std::max(0.0, number_property(self, "sellength")));
         result = Value{text.substr(start, length)};
@@ -2973,7 +3070,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
         if (!coerce_property(in, converted, "String", failure)) {
             return true;
         }
-        const bool changed = combo_text(self) != std::get<std::string>(converted);
+        const bool changed =
+            combo_text(self) != std::get<std::string>(converted);
         self.values["text"] = converted;
         // The selection follows the text when an item has exactly that text.
         ItemPtr match;
@@ -2998,12 +3096,14 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
             return true;
         }
         const std::string text = combo_text(self);
-        const std::size_t start = std::min<std::size_t>(
-            static_cast<std::size_t>(std::max(0.0, number_property(self, "selstart"))),
-            text.size());
-        const std::size_t length = std::min<std::size_t>(
-            static_cast<std::size_t>(std::max(0.0, number_property(self, "sellength"))),
-            text.size() - start);
+        const std::size_t start =
+            std::min<std::size_t>(static_cast<std::size_t>(std::max(
+                                      0.0, number_property(self, "selstart"))),
+                                  text.size());
+        const std::size_t length =
+            std::min<std::size_t>(static_cast<std::size_t>(std::max(
+                                      0.0, number_property(self, "sellength"))),
+                                  text.size() - start);
         const std::string inserted = std::get<std::string>(converted);
         self.values["text"] = Value{text.substr(0, start) + inserted +
                                     text.substr(start + length)};
@@ -3017,7 +3117,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
 }
 
 [[nodiscard]] bool combo_input(Interpreter& in, ControlObject& self,
-                               const std::string& action, const std::string& rest) {
+                               const std::string& action,
+                               const std::string& rest) {
     NativeFailure ignored;
     if (action == "select") {
         const ItemPtr item =
@@ -3043,7 +3144,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item, const bool ex
 
 }  // namespace
 
-// ----- Hook dispatch ------------------------------------------------------------------
+// ----- Hook dispatch
+// ------------------------------------------------------------------
 
 bool ComctlHooks::node_add(Interpreter& in, ControlObject& control,
                            std::vector<CallArgument>& arguments, Value& result,
@@ -3110,13 +3212,16 @@ bool ComctlHooks::after_add(Interpreter& in, ControlObject& control,
     if (kind == "listimage" && control.class_key == "imagelist") {
         // The first image sets the size of the list (pixels at 96 dpi).
         if (top_list(control, kind).size() == 1U) {
-            if (const PictureObject* picture = picture_of(item->p.at("picture"))) {
+            if (const PictureObject* picture =
+                    picture_of(item->p.at("picture"))) {
                 const auto pixels = [](const long himetric) {
-                    return static_cast<Int16>(
-                        std::lround(static_cast<double>(himetric) * 96.0 / 2540.0));
+                    return static_cast<Int16>(std::lround(
+                        static_cast<double>(himetric) * 96.0 / 2540.0));
                 };
-                control.values["imagewidth"] = Value{pixels(picture->info.width)};
-                control.values["imageheight"] = Value{pixels(picture->info.height)};
+                control.values["imagewidth"] =
+                    Value{pixels(picture->info.width)};
+                control.values["imageheight"] =
+                    Value{pixels(picture->info.height)};
             }
         }
     }
@@ -3312,8 +3417,8 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
             return true;
         }
         if (member == "clientheight") {
-            result = Value{static_cast<float>(
-                std::max(0.0, height - rows_height - 90.0))};
+            result = Value{
+                static_cast<float>(std::max(0.0, height - rows_height - 90.0))};
             return true;
         }
         if (member == "hittest") {
@@ -3327,8 +3432,9 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
             const auto& tabs = top_list(self, "tab");
             for (std::size_t i = 0; i < rects.size() && i < tabs.size(); ++i) {
                 const TabRect& rect = rects[i];
-                if (rect.width > 0.0 && x >= rect.left && x < rect.left + rect.width &&
-                    y >= rect.top && y < rect.top + rect.height) {
+                if (rect.width > 0.0 && x >= rect.left &&
+                    x < rect.left + rect.width && y >= rect.top &&
+                    y < rect.top + rect.height) {
                     ListRef ref;
                     ref.kind = "tab";
                     result = wrap_item(self.self.lock(), ref, tabs[i]);
@@ -3355,7 +3461,8 @@ bool comctl_control_put(Interpreter& in, ControlObject& self,
     if (ocx_put(in, self, member, arguments, value, failure)) {
         return true;
     }
-    if (self.class_key == "listview" && list_put(in, self, member, value, failure)) {
+    if (self.class_key == "listview" &&
+        list_put(in, self, member, value, failure)) {
         return true;
     }
     if (self.class_key == "imagecombo" &&
@@ -3503,7 +3610,8 @@ bool ComctlSupport::user_input(Interpreter& in, InstanceData& form,
     return true;
 }
 
-// ----- Persisted state of the controls (the BeginProperty groups of a .frm) ----------
+// ----- Persisted state of the controls (the BeginProperty groups of a .frm)
+// ----------
 
 namespace {
 
@@ -3513,7 +3621,8 @@ namespace {
         if (c == ' ' || c == '\t' || c == '{' || c == '(') {
             break;
         }
-        word.push_back(static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
+        word.push_back(
+            static_cast<char>(std::tolower(static_cast<unsigned char>(c))));
     }
     return word;
 }
@@ -3561,7 +3670,8 @@ namespace {
 }
 
 // Reads the entries of `group` into a new item of `kind` appended to `items`.
-[[nodiscard]] ItemPtr persisted_item(ControlObject& control, const std::string& kind,
+[[nodiscard]] ItemPtr persisted_item(ControlObject& control,
+                                     const std::string& kind,
                                      const ui::FrmProperty& group,
                                      const std::string& frx_directory) {
     const KindSpec& spec = spec_of(kind);
@@ -3601,18 +3711,20 @@ void comctl_load_persisted(Interpreter& in, ControlObject& control,
     }
     if (source.find("OleObjectBlob") != nullptr) {
         FormSupport::warn(
-            in, std::string(kUnreadableStateCode) +
-                    ": the persisted state of control '" + control.display_name +
-                    "' (OleObjectBlob) is not read; its collections start empty");
+            in,
+            std::string(kUnreadableStateCode) +
+                ": the persisted state of control '" + control.display_name +
+                "' (OleObjectBlob) is not read; its collections start empty");
     }
-    static const std::map<std::string, std::pair<const char*, const char*>> groups = {
-        {"tabs", {"tab", "tab"}},
-        {"panels", {"panel", "panel"}},
-        {"buttons", {"button", "button"}},
-        {"images", {"listimage", "listimage"}},
-        {"columnheaders", {"columnheader", "columnheader"}},
-        {"comboitems", {"comboitem", "comboitem"}},
-    };
+    static const std::map<std::string, std::pair<const char*, const char*>>
+        groups = {
+            {"tabs", {"tab", "tab"}},
+            {"panels", {"panel", "panel"}},
+            {"buttons", {"button", "button"}},
+            {"images", {"listimage", "listimage"}},
+            {"columnheaders", {"columnheader", "columnheader"}},
+            {"comboitems", {"comboitem", "comboitem"}},
+        };
     for (const auto& property : source.properties) {
         if (property.nested.empty()) {
             continue;
@@ -3626,7 +3738,8 @@ void comctl_load_persisted(Interpreter& in, ControlObject& control,
                 if (entry.nested.empty()) {
                     continue;  // NumTabs and friends
                 }
-                const ItemPtr item = persisted_item(control, kind, entry, frx_directory);
+                const ItemPtr item =
+                    persisted_item(control, kind, entry, frx_directory);
                 if (kind == "button") {
                     for (const auto& menus : entry.nested) {
                         if (group_word(menus.name) != "buttonmenus") {
@@ -3634,8 +3747,9 @@ void comctl_load_persisted(Interpreter& in, ControlObject& control,
                         }
                         for (const auto& menu : menus.nested) {
                             if (!menu.nested.empty()) {
-                                item->sub.push_back(persisted_item(
-                                    control, "buttonmenu", menu, frx_directory));
+                                item->sub.push_back(
+                                    persisted_item(control, "buttonmenu", menu,
+                                                   frx_directory));
                             }
                         }
                     }
@@ -3660,15 +3774,19 @@ void comctl_load_persisted(Interpreter& in, ControlObject& control,
     }
 }
 
-// ----- Snapshots for the host ---------------------------------------------------------
+// ----- Snapshots for the host
+// ---------------------------------------------------------
 
 namespace {
 
 [[nodiscard]] long long_of(const Value& value) {
-    return is_number(value) ? static_cast<long>(std::nearbyint(as_double(value))) : 0;
+    return is_number(value)
+               ? static_cast<long>(std::nearbyint(as_double(value)))
+               : 0;
 }
 
-[[nodiscard]] ui::CommonItem common_item(const ItemPtr& item, const char* text_name) {
+[[nodiscard]] ui::CommonItem common_item(const ItemPtr& item,
+                                         const char* text_name) {
     ui::CommonItem result;
     result.text = text_of_prop(item, text_name);
     result.key = text_of_prop(item, "key");
@@ -3738,8 +3856,8 @@ namespace {
                : -1;
 }
 
-void fill_images(Interpreter& in, ControlObject* list,
-                 std::vector<long>& ids, long& width, long& height) {
+void fill_images(Interpreter& in, ControlObject* list, std::vector<long>& ids,
+                 long& width, long& height) {
     if (list == nullptr) {
         return;
     }
@@ -3747,7 +3865,8 @@ void fill_images(Interpreter& in, ControlObject* list,
     height = static_cast<long>(number_property(*list, "imageheight"));
     for (const auto& image : state_of(*list).lists["listimages"]) {
         PictureObject* picture = picture_of(image->p.at("picture"));
-        ids.push_back(picture != nullptr ? FormSupport::host_picture(in, *picture) : 0);
+        ids.push_back(
+            picture != nullptr ? FormSupport::host_picture(in, *picture) : 0);
     }
 }
 
@@ -3763,17 +3882,24 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
     snapshot.smooth = number_property(control, "scrolling") == 1.0;
     snapshot.checkboxes = control_flag(control, "checkboxes");
     // Grid lines and full-row selection only apply in report view.
-    snapshot.gridlines = control_flag(control, "gridlines") &&
-                         (control.class_key != "listview" || snapshot.view == 3);
+    snapshot.gridlines =
+        control_flag(control, "gridlines") &&
+        (control.class_key != "listview" || snapshot.view == 3);
     snapshot.full_row = control_flag(control, "fullrowselect") &&
                         (control.class_key != "listview" || snapshot.view == 3);
     snapshot.hide_headers = control_flag(control, "hidecolumnheaders");
-    snapshot.large_change = static_cast<long>(number_property(control, "largechange"));
-    snapshot.small_change = static_cast<long>(number_property(control, "smallchange"));
-    snapshot.tick_frequency = static_cast<long>(number_property(control, "tickfrequency"));
-    snapshot.tick_style = static_cast<long>(number_property(control, "tickstyle"));
-    snapshot.sel_start = static_cast<long>(number_property(control, "selstart"));
-    snapshot.sel_length = static_cast<long>(number_property(control, "sellength"));
+    snapshot.large_change =
+        static_cast<long>(number_property(control, "largechange"));
+    snapshot.small_change =
+        static_cast<long>(number_property(control, "smallchange"));
+    snapshot.tick_frequency =
+        static_cast<long>(number_property(control, "tickfrequency"));
+    snapshot.tick_style =
+        static_cast<long>(number_property(control, "tickstyle"));
+    snapshot.sel_start =
+        static_cast<long>(number_property(control, "selstart"));
+    snapshot.sel_length =
+        static_cast<long>(number_property(control, "sellength"));
     snapshot.select_range = control_flag(control, "selectrange");
     snapshot.locked = control_flag(control, "locked");
     if (control.class_key == "monthview") {
@@ -3794,7 +3920,8 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
             static_cast<long>(number_property(control, "increment"));
     }
     const auto text = control.values.find("text");
-    if (text != control.values.end() && std::holds_alternative<std::string>(text->second)) {
+    if (text != control.values.end() &&
+        std::holds_alternative<std::string>(text->second)) {
         snapshot.text = std::get<std::string>(text->second);
     }
     const auto simple = control.values.find("simpletext");
@@ -3809,16 +3936,19 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
         return found == lists.end() ? none : found->second;
     };
     const std::string& cls = control.class_key;
-    ControlObject* images = linked_image_list(control, cls == "listview" ? "icons" : "imagelist");
+    ControlObject* images =
+        linked_image_list(control, cls == "listview" ? "icons" : "imagelist");
     ControlObject* small_images = linked_image_list(control, "smallicons");
-    fill_images(in, images, snapshot.images, snapshot.image_width, snapshot.image_height);
+    fill_images(in, images, snapshot.images, snapshot.image_width,
+                snapshot.image_height);
     fill_images(in, small_images, snapshot.small_images, snapshot.small_width,
                 snapshot.small_height);
     if (cls == "tabstrip") {
         long at = 0;
         for (const auto& tab : list("tabs")) {
             snapshot.items.push_back(common_item(tab, "caption"));
-            snapshot.items.back().image = image_index(images, tab->p.at("image"));
+            snapshot.items.back().image =
+                image_index(images, tab->p.at("image"));
             if (flag(tab, "selected")) {
                 snapshot.selected = at;
             }
@@ -3905,5 +4035,6 @@ void comctl_push(Interpreter& in, ControlObject& control) {
         control.class_key == "winsock") {
         return;
     }
-    FormSupport::runtime(in).host->sync_common(control.window, comctl_snapshot(in, control));
+    FormSupport::runtime(in).host->sync_common(control.window,
+                                               comctl_snapshot(in, control));
 }
