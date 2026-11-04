@@ -147,6 +147,28 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
+  add_executable(mscomctl_range_test tests/range_test.cpp)
+  target_link_libraries(mscomctl_range_test PRIVATE wfc_mscomctl)
+  if(WFC_MSCOMCTL_SHARED)
+    # Next to the DLL, so the program finds it.
+    set_target_properties(
+      mscomctl_range_test
+      PROPERTIES RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
+    )
+  endif()
+  target_compile_features(mscomctl_range_test PRIVATE cxx_std_20)
+  if(COMMAND wfc_enable_strict_warnings)
+    wfc_enable_strict_warnings(mscomctl_range_test)
+  endif()
+  if(COMMAND wsp_enable_hardening)
+    wsp_enable_hardening(mscomctl_range_test)
+  endif()
+  add_test(NAME TC-MP0010-mscomctl-range COMMAND mscomctl_range_test)
+  set_tests_properties(
+    TC-MP0010-mscomctl-range
+    PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
+  )
+
   if(WIN32 AND WFC_MSCOMCTL_SHARED)
     enable_language(C)
     add_executable(mscomctl_dll_test tests/mscomctl_dll_test.c)

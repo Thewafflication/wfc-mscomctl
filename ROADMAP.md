@@ -39,6 +39,13 @@ item is present, tested and passing in CI; an unchecked one is planned.
       is still the evaluator's.
 - [ ] The behaviour moves out of the evaluator (`include/wfc/mscomctl/mscomctl.inc`)
       into the library.
+  - [x] ProgressBar and Slider: `range.hpp` holds the rules (ordered range,
+        Value inside it or error 380, the position the user moves to). The
+        evaluator and the COM objects both use it (`src/com_behaviour.hpp`;
+        a Slider raises `Change`). Tested by `range_test` and, through COM,
+        by `mscomctl_dll_test`.
+  - [ ] TabStrip, Toolbar, StatusBar, TreeView, ListView, ImageList and
+        ImageCombo: their collections and items are still the evaluator's.
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 

@@ -1302,16 +1302,18 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
             }
             minimum = static_cast<double>(model.min());
             maximum = static_cast<double>(model.max());
-        } else if (member == "min") {
-            minimum = wanted;
-        } else if (member == "max") {
-            maximum = wanted;
-        }
-        if (!updown &&
-            (minimum > maximum ||
-             (member == "value" && (wanted < minimum || wanted > maximum)))) {
-            failure = NativeFailure{380, "Invalid property value"};
-            return true;
+        } else {
+            // The rules of ProgressBar and Slider are the library's (range.hpp).
+            wfc::mscomctl::RangeModel model{minimum, maximum, current};
+            const auto outcome = member == "min"   ? model.set_min(wanted)
+                                 : member == "max" ? model.set_max(wanted)
+                                                   : model.set_value(wanted);
+            if (!outcome.valid) {
+                failure = NativeFailure{380, "Invalid property value"};
+                return true;
+            }
+            minimum = model.min();
+            maximum = model.max();
         }
         const double before = current;
         self.values[member] = converted;
@@ -3554,12 +3556,13 @@ bool ComctlSupport::user_input(Interpreter& in, InstanceData& form,
     };
     if (self.class_key == "slider" && action == "value") {
         // The user drags the thumb: Scroll while moving, then Change.
-        const double wanted = std::atof(rest.c_str());
-        const double minimum = number_property(self, "min");
-        const double maximum = number_property(self, "max");
-        const double target = std::min(std::max(wanted, minimum), maximum);
-        if (target != number_property(self, "value")) {
-            self.values["value"] = Value{static_cast<Integer>(target)};
+        wfc::mscomctl::RangeModel model{number_property(self, "min"),
+                                        number_property(self, "max"),
+                                        number_property(self, "value")};
+        const auto moved = model.move_to(std::atof(rest.c_str()));
+        if (moved.changed) {
+            self.values["value"] =
+                Value{static_cast<Integer>(model.value())};
             return raise_event(in, self, "Scroll", {}) &&
                    raise_event(in, self, "Click", {}) &&
                    raise_event(in, self, "Change", {});

@@ -6,11 +6,13 @@
 // class ids, and the Microsoft ones used when WFC_REGISTER_MICROSOFT_IDS=1.
 // DllGetClassObject gives the class factory of a class
 // (wfc/ocx/class_factory.hpp): its objects are late-bound controls built from
-// the member table, without the WFC evaluator.
+// the member table, without the WFC evaluator; a ProgressBar and a Slider
+// also keep their range (com_behaviour.hpp).
 
 #include <wfc/mscomctl/mscomctl.hpp>
 #include <wfc/ocx/class_factory.hpp>
 #include <wfc/ocx/registration.hpp>
+#include "com_behaviour.hpp"
 #include "registration_info.hpp"
 
 #include <iterator>
@@ -78,9 +80,9 @@ HRESULT __stdcall DllCanUnloadNow() {
 
 HRESULT __stdcall DllGetClassObject(REFCLSID clsid, REFIID iid, void** object) {
     const auto tables = wfc::ui::mscomctl_classes();
-    return wfc::com::get_class_object(clsid, iid, object, kClasses,
-                                      std::size(kClasses), tables.data(),
-                                      tables.size());
+    return wfc::com::get_class_object(
+        clsid, iid, object, kClasses, std::size(kClasses), tables.data(),
+        tables.size(), wfc::mscomctl::make_behaviour);
 }
 
 }  // extern "C"
