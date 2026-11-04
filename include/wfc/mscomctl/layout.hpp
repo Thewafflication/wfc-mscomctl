@@ -1,0 +1,156 @@
+// The layout of the tabs of a TabStrip and of the buttons of a Toolbar, apart
+// from any window or control: sizes in twips from the properties of the items,
+// and the rule for which buttons of a toolbar form one group. Header only, with
+// no dependency on the WFC evaluator or on Windows; the evaluator and the tests
+// use it. Internal to the WFC libraries.
+//
+// The layout is an approximation of the Microsoft control (there is no
+// reference probe yet, see COMPATIBILITY.md).
+
+#ifndef WFC_MSCOMCTL_LAYOUT_HPP
+#define WFC_MSCOMCTL_LAYOUT_HPP
+
+#include <algorithm>
+#include <cstddef>
+#include <utility>
+#include <vector>
+
+namespace wfc::mscomctl {
+
+// The position and size of a tab or a button, in twips.
+struct Rect {
+    double left{0};
+    double top{0};
+    double width{0};
+    double height{0};
+};
+
+// What the layout of a tab needs to know of it.
+struct TabSpec {
+    bool visible = true;
+    std::size_t caption_length = 0;
+};
+
+// The properties of a TabStrip that decide the layout.
+struct TabOptions {
+    double fixed_width = 0;   // TabFixedWidth
+    double fixed_height = 0;  // TabFixedHeight
+    double min_width = 0;     // TabMinWidth
+    long width_style = 0;     // TabWidthStyle: 2 is tabFixed
+    double total_width = 0;   // Width of the control
+    bool multi_row = false;   // MultiRow
+};
+
+// The rectangle of every tab, laid out left to right (wrapping to rows with
+// MultiRow). A tab that is not visible has an empty rectangle.
+[[nodiscard]] inline std::vector<Rect> tab_layout(
+    const std::vector<TabSpec>& tabs, const TabOptions& options) {
+    std::vector<Rect> rects;
+    const double height =
+        options.fixed_height > 0.0 ? options.fixed_height : 300.0;
+    double x = 0.0;
+    double y = 0.0;
+    for (const auto& tab : tabs) {
+        if (!tab.visible) {
+            rects.push_back({});
+            continue;
+        }
+        const double width =
+            options.width_style == 2 && options.fixed_width > 0.0
+                ? options.fixed_width
+                : std::max(
+                      options.min_width > 0.0 ? options.min_width : 600.0,
+                      120.0 + 95.0 * static_cast<double>(tab.caption_length));
+        if (options.multi_row && x > 0.0 && x + width > options.total_width &&
+            options.total_width > 0.0) {
+            x = 0.0;
+            y += height;
+        }
+        rects.push_back({x, y, width, height});
+        x += width;
+    }
+    return rects;
+}
+
+// The styles of a toolbar button (tbrStyleConstants).
+constexpr int kButtonDefault = 0;
+constexpr int kButtonCheck = 1;
+constexpr int kButtonGroup = 2;
+constexpr int kButtonSeparator = 3;
+constexpr int kButtonPlaceholder = 4;
+constexpr int kButtonDropdown = 5;
+
+// What the layout of a button needs to know of it.
+struct ButtonSpec {
+    bool visible = true;
+    int style = kButtonDefault;
+    double width = 0;  // the button's own Width, 0 for the default
+    std::size_t caption_length = 0;
+};
+
+// The properties of a Toolbar that decide the layout.
+struct ButtonOptions {
+    double button_height = 0;  // ButtonHeight, 0 for the default
+    double fixed_width = 0;    // ButtonWidth, 0 for the default
+    double total_width = 0;    // Width of the control
+    bool wrappable = true;     // Wrappable
+};
+
+// Position and size of every button (wrapping with Wrappable starts a new row
+// when the toolbar is full). A button that is not visible has an empty
+// rectangle.
+[[nodiscard]] inline std::vector<Rect> button_layout(
+    const std::vector<ButtonSpec>& buttons, const ButtonOptions& options) {
+    std::vector<Rect> rects;
+    const double height =
+        options.button_height > 0.0 ? options.button_height : 330.0;
+    double x = 0.0;
+    double y = 0.0;
+    for (const auto& button : buttons) {
+        if (!button.visible) {
+            rects.push_back({});
+            continue;
+        }
+        double width = 360.0;
+        if (button.style == kButtonSeparator) {
+            width = 120.0;
+        } else if (button.style == kButtonPlaceholder) {
+            width = std::max(button.width, 120.0);
+        } else if (button.width > 0.0) {
+            width = button.width;
+        } else if (options.fixed_width > 0.0) {
+            width = options.fixed_width;
+        } else {
+            width = std::max(360.0, 120.0 + 95.0 * static_cast<double>(
+                                                       button.caption_length));
+        }
+        if (options.wrappable && options.total_width > 0.0 && x > 0.0 &&
+            x + width > options.total_width) {
+            x = 0.0;
+            y += height;
+        }
+        rects.push_back({x, y, width, height});
+        x += width;
+    }
+    return rects;
+}
+
+// The buttons that form a group with the button at `position` (0-based): the
+// run of consecutive buttons of style group around it, as the first and last
+// positions (the button itself when it is alone).
+[[nodiscard]] inline std::pair<std::size_t, std::size_t> button_group(
+    const std::vector<int>& styles, const std::size_t position) {
+    std::size_t first = position;
+    std::size_t last = position;
+    while (first > 0 && styles[first - 1U] == kButtonGroup) {
+        --first;
+    }
+    while (last + 1U < styles.size() && styles[last + 1U] == kButtonGroup) {
+        ++last;
+    }
+    return {first, last};
+}
+
+}  // namespace wfc::mscomctl
+
+#endif  // WFC_MSCOMCTL_LAYOUT_HPP

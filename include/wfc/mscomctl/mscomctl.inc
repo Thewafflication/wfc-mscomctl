@@ -1435,52 +1435,34 @@ struct HookCtx {
 // ----- TabStrip
 // -----------------------------------------------------------------
 
-struct TabRect {
-    double left{0};
-    double top{0};
-    double width{0};
-    double height{0};
-};
+// The rectangle of a tab or a button; the layout rules are the library's
+// (layout.hpp).
+using TabRect = wfc::mscomctl::Rect;
 
 // The rectangle of every tab, laid out left to right (wrapping to rows with
 // MultiRow). An approximation of the OCX layout in twips.
 [[nodiscard]] std::vector<TabRect> tab_layout(ControlObject& control) {
-    std::vector<TabRect> rects;
-    const double fixed_width = number_property(control, "tabfixedwidth");
-    const double fixed_height = number_property(control, "tabfixedheight");
-    const double minimum = number_property(control, "tabminwidth");
-    const long width_style =
+    wfc::mscomctl::TabOptions options;
+    options.fixed_width = number_property(control, "tabfixedwidth");
+    options.fixed_height = number_property(control, "tabfixedheight");
+    options.min_width = number_property(control, "tabminwidth");
+    options.width_style =
         static_cast<long>(number_property(control, "tabwidthstyle"));
-    const double height = fixed_height > 0.0 ? fixed_height : 300.0;
-    const double total = number_property(control, "width");
-    const bool multi =
+    options.total_width = number_property(control, "width");
+    options.multi_row =
         control.values.contains("multirow") &&
         std::holds_alternative<bool>(control.values.at("multirow")) &&
         std::get<bool>(control.values.at("multirow"));
-    double x = 0.0;
-    double y = 0.0;
+    std::vector<wfc::mscomctl::TabSpec> tabs;
     for (const auto& tab : top_list(control, "tab")) {
-        if (!flag(tab, "visible")) {
-            rects.push_back({});
-            continue;
-        }
         const auto caption = tab->p.at("caption");
-        const std::string text = std::holds_alternative<std::string>(caption)
-                                     ? std::get<std::string>(caption)
-                                     : std::string{};
-        double width =
-            width_style == 2 && fixed_width > 0.0
-                ? fixed_width
-                : std::max(minimum > 0.0 ? minimum : 600.0,
-                           120.0 + 95.0 * static_cast<double>(text.size()));
-        if (multi && x > 0.0 && x + width > total && total > 0.0) {
-            x = 0.0;
-            y += height;
-        }
-        rects.push_back({x, y, width, height});
-        x += width;
+        tabs.push_back(
+            {flag(tab, "visible"),
+             std::holds_alternative<std::string>(caption)
+                 ? std::get<std::string>(caption).size()
+                 : std::size_t{0}});
     }
-    return rects;
+    return wfc::mscomctl::tab_layout(tabs, options);
 }
 
 [[nodiscard]] ItemPtr selected_tab(ControlObject& control) {
@@ -1576,12 +1558,12 @@ struct TabRect {
 // ----- Toolbar
 // ------------------------------------------------------------------
 
-constexpr int kStyleDefault = 0;
-constexpr int kStyleCheck = 1;
-constexpr int kStyleGroup = 2;
-constexpr int kStyleSeparator = 3;
-constexpr int kStylePlaceholder = 4;
-constexpr int kStyleDropdown = 5;
+constexpr int kStyleDefault = wfc::mscomctl::kButtonDefault;
+constexpr int kStyleCheck = wfc::mscomctl::kButtonCheck;
+constexpr int kStyleGroup = wfc::mscomctl::kButtonGroup;
+constexpr int kStyleSeparator = wfc::mscomctl::kButtonSeparator;
+constexpr int kStylePlaceholder = wfc::mscomctl::kButtonPlaceholder;
+constexpr int kStyleDropdown = wfc::mscomctl::kButtonDropdown;
 
 [[nodiscard]] int button_style(const ItemPtr& button) {
     return static_cast<int>(item_number(button, "style"));
@@ -1600,50 +1582,26 @@ constexpr int kStyleDropdown = 5;
 // Position and size of every button in twips (wrapping with `Wrappable`
 // starts a new row when the toolbar is full).
 [[nodiscard]] std::vector<TabRect> button_layout(ControlObject& control) {
-    std::vector<TabRect> rects;
-    const double height = number_property(control, "buttonheight") > 0.0
-                              ? number_property(control, "buttonheight")
-                              : 330.0;
-    const double total = number_property(control, "width");
-    const double fixed = number_property(control, "buttonwidth");
-    bool wrap = true;
+    wfc::mscomctl::ButtonOptions options;
+    options.button_height = number_property(control, "buttonheight");
+    options.fixed_width = number_property(control, "buttonwidth");
+    options.total_width = number_property(control, "width");
     if (const auto found = control.values.find("wrappable");
         found != control.values.end() &&
         std::holds_alternative<bool>(found->second)) {
-        wrap = std::get<bool>(found->second);
+        options.wrappable = std::get<bool>(found->second);
     }
-    double x = 0.0;
-    double y = 0.0;
+    std::vector<wfc::mscomctl::ButtonSpec> buttons;
     for (const auto& button : top_list(control, "button")) {
-        if (!flag(button, "visible")) {
-            rects.push_back({});
-            continue;
-        }
-        const int style = button_style(button);
         const auto caption = button->p.at("caption");
-        const std::size_t length = std::holds_alternative<std::string>(caption)
-                                       ? std::get<std::string>(caption).size()
-                                       : 0U;
-        double width = 360.0;
-        if (style == kStyleSeparator) {
-            width = 120.0;
-        } else if (style == kStylePlaceholder) {
-            width = std::max(item_number(button, "width"), 120.0);
-        } else if (item_number(button, "width") > 0.0) {
-            width = item_number(button, "width");
-        } else if (fixed > 0.0) {
-            width = fixed;
-        } else {
-            width = std::max(360.0, 120.0 + 95.0 * static_cast<double>(length));
-        }
-        if (wrap && total > 0.0 && x > 0.0 && x + width > total) {
-            x = 0.0;
-            y += height;
-        }
-        rects.push_back({x, y, width, height});
-        x += width;
+        buttons.push_back(
+            {flag(button, "visible"), button_style(button),
+             item_number(button, "width"),
+             std::holds_alternative<std::string>(caption)
+                 ? std::get<std::string>(caption).size()
+                 : std::size_t{0}});
     }
-    return rects;
+    return wfc::mscomctl::button_layout(buttons, options);
 }
 
 // Presses `button` of a button group and releases the others of the group.
@@ -1653,15 +1611,12 @@ void press_group(ControlObject& control, const ItemPtr& button) {
     if (position == 0) {
         return;
     }
-    std::size_t first = static_cast<std::size_t>(position) - 1U;
-    std::size_t last = first;
-    while (first > 0 && button_style(buttons[first - 1U]) == kStyleGroup) {
-        --first;
+    std::vector<int> styles;
+    for (const auto& other : buttons) {
+        styles.push_back(button_style(other));
     }
-    while (last + 1U < buttons.size() &&
-           button_style(buttons[last + 1U]) == kStyleGroup) {
-        ++last;
-    }
+    const auto [first, last] = wfc::mscomctl::button_group(
+        styles, static_cast<std::size_t>(position) - 1U);
     for (std::size_t i = first; i <= last; ++i) {
         buttons[i]->p["value"] =
             Value{static_cast<Int16>(buttons[i] == button ? 1 : 0)};

@@ -44,8 +44,13 @@ item is present, tested and passing in CI; an unchecked one is planned.
         evaluator and the COM objects both use it (`src/com_behaviour.hpp`;
         a Slider raises `Change`). Tested by `range_test` and, through COM,
         by `mscomctl_dll_test`.
-  - [ ] TabStrip, Toolbar, StatusBar, TreeView, ListView, ImageList and
-        ImageCombo: their collections and items are still the evaluator's.
+  - [x] TabStrip and Toolbar layout: `layout.hpp` holds the sizes and rows
+        of tabs and buttons and the rule for a group of buttons; the
+        evaluator builds the item specs and calls it. Tested by
+        `layout_test`.
+  - [ ] StatusBar, TreeView, ListView, ImageList and ImageCombo, and the
+        item collections (keys, indexes, selection) of every control: still
+        the evaluator's, because they raise events and hold `Value`s.
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 
