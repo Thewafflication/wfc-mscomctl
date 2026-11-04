@@ -52,8 +52,11 @@ item is present, tested and passing in CI; an unchecked one is planned.
         `items.hpp` (ADR-0010 step 1). Tested by `items_test`.
   - [x] Tab selection, the panel limit and the bound ImageList rule
         (ADR-0010 step 2), pinned by corpus 222.
-  - [ ] Toolbar, TreeView, ListView, ImageList and ImageCombo, and the COM
-        collections (ADR-0010 steps 3 to 7).
+  - [x] Toolbar button rules (styles, values, presses, drop-down,
+        SaveToolbar text): `toolbar.hpp` (ADR-0010 step 3), pinned by
+        corpus 223 and tested by `toolbar_test`.
+  - [ ] TreeView, ListView, ImageList and ImageCombo, and the COM
+        collections (ADR-0010 steps 4 to 7).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 

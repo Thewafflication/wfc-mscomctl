@@ -1,0 +1,4 @@
+Type=Exe
+Form=223-comctl-toolbar-rules.frm
+Startup="Form1"
+WfcUiScript=223-comctl-toolbar-rules.ui

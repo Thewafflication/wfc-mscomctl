@@ -1,0 +1,27 @@
+start: off=0 sep=0 ph=0 chk=0 ga=0 gb=0 plain=0 dd=0 ddoff=0 x1=0 x2=0 x3=0 
+style-1  380 Invalid property value
+style 6  380 Invalid property value
+value 2 380 
+value -1 380 
+style abc 13 
+no button 35601 Element not found
+index 0 35600 
+group: off=0 sep=0 ph=0 chk=0 ga=0 gb=1 plain=0 dd=0 ddoff=0 x1=0 x2=0 x3=0 
+second group: off=0 sep=0 ph=0 chk=0 ga=0 gb=1 plain=0 dd=0 ddoff=0 x1=0 x2=1 x3=0 
+release: off=0 sep=0 ph=0 chk=0 ga=0 gb=1 plain=0 dd=0 ddoff=0 x1=0 x2=0 x3=0 
+check: off=0 sep=0 ph=0 chk=1 ga=0 gb=1 plain=0 dd=0 ddoff=0 x1=1 x2=0 x3=0 
+leftFalse
+hidden 0  0 
+sep 120 
+wrapTrue
+nowrapTrue
+restore: off=0 sep=0 ph=0 chk=1 ga=0 gb=1 plain=0 dd=0 ddoff=0 x1=1h x2=0 x3=0 
+restore missing: off=0 sep=0 ph=0 chk=1 ga=0 gb=1 plain=0 dd=0 ddoff=0 x1=1h x2=0 x3=0 
+save args 450 Wrong number of arguments
+click chk 0 
+click chk 1 
+click ga 1 
+click gb 1 
+click gb 1 
+dropdown dd
+menu m1One

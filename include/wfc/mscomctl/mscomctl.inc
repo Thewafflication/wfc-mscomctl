@@ -1565,13 +1565,6 @@ using TabRect = wfc::mscomctl::Rect;
 // ----- Toolbar
 // ------------------------------------------------------------------
 
-constexpr int kStyleDefault = wfc::mscomctl::kButtonDefault;
-constexpr int kStyleCheck = wfc::mscomctl::kButtonCheck;
-constexpr int kStyleGroup = wfc::mscomctl::kButtonGroup;
-constexpr int kStyleSeparator = wfc::mscomctl::kButtonSeparator;
-constexpr int kStylePlaceholder = wfc::mscomctl::kButtonPlaceholder;
-constexpr int kStyleDropdown = wfc::mscomctl::kButtonDropdown;
-
 [[nodiscard]] int button_style(const ItemPtr& button) {
     return static_cast<int>(item_number(button, "style"));
 }
@@ -1662,15 +1655,15 @@ void press_group(ControlObject& control, const ItemPtr& button) {
 // The user presses `button`.
 [[nodiscard]] bool click_button(Interpreter& in, ControlObject& control,
                                 const ItemPtr& button) {
-    const int style = button_style(button);
-    if (!flag(button, "enabled") || style == kStyleSeparator ||
-        style == kStylePlaceholder) {
+    const auto press =
+        wfc::mscomctl::press_of(button_style(button), flag(button, "enabled"));
+    if (press == wfc::mscomctl::Press::ignore) {
         return true;
     }
-    if (style == kStyleCheck) {
-        button->p["value"] = Value{
-            static_cast<Int16>(item_number(button, "value") == 0.0 ? 1 : 0)};
-    } else if (style == kStyleGroup) {
+    if (press == wfc::mscomctl::Press::toggle) {
+        button->p["value"] = Value{static_cast<Int16>(
+            wfc::mscomctl::toggled_value(item_number(button, "value")))};
+    } else if (press == wfc::mscomctl::Press::group) {
         press_group(control, button);
     }
     ListRef ref;
@@ -1710,11 +1703,12 @@ std::map<std::string, std::string>& saved_toolbars() {
     const std::string registry_value = FormSupport::text_of(arguments[2].value);
     result = Value{Empty{}};
     if (member == "savetoolbar") {
-        std::string layout;
+        std::vector<wfc::mscomctl::SavedButton> saved;
         for (const auto& button : top_list(self, "button")) {
-            layout += FormSupport::text_of(button->p.at("key")) + "=" +
-                      (flag(button, "visible") ? "1" : "0") + ";";
+            saved.push_back({FormSupport::text_of(button->p.at("key")),
+                             flag(button, "visible")});
         }
+        const std::string layout = wfc::mscomctl::save_layout(saved);
         saved_toolbars()[name] = layout;
         // Also under HKEY_CURRENT_USER\<Key>\<Subkey>, value <Value>.
         static_cast<void>(wfc_registry_write(registry_key, registry_subkey,
@@ -1731,24 +1725,12 @@ std::map<std::string, std::string>& saved_toolbars() {
     } else {
         return true;
     }
-    const std::string& layout = stored;
-    std::size_t start = 0;
-    while (start < layout.size()) {
-        const auto end = layout.find(';', start);
-        const std::string entry = layout.substr(start, end - start);
-        const auto equals = entry.find('=');
-        if (equals != std::string::npos) {
-            for (const auto& button : top_list(self, "button")) {
-                if (same_key(button->p.at("key"), entry.substr(0, equals))) {
-                    button->p["visible"] =
-                        Value{entry.substr(equals + 1U) == "1"};
-                }
+    for (const auto& entry : wfc::mscomctl::parse_layout(stored)) {
+        for (const auto& button : top_list(self, "button")) {
+            if (same_key(button->p.at("key"), entry.key)) {
+                button->p["visible"] = Value{entry.visible};
             }
         }
-        if (end == std::string::npos) {
-            break;
-        }
-        start = end + 1U;
     }
     return true;
 }
@@ -1766,7 +1748,8 @@ std::map<std::string, std::string>& saved_toolbars() {
         if (action == "button") {
             return click_button(in, self, button);
         }
-        if (button_style(button) == kStyleDropdown && flag(button, "enabled")) {
+        if (wfc::mscomctl::drops_down(button_style(button),
+                                      flag(button, "enabled"))) {
             ListRef ref;
             ref.kind = "button";
             return raise_event(in, self, "ButtonDropDown",
@@ -3293,13 +3276,16 @@ bool ComctlHooks::item_put(Interpreter& in, ControlObject& control,
                 return true;
             }
             const double number = as_double(converted);
-            if (number < 0 || number > (member == "style" ? 5 : 1)) {
+            if (!(member == "style"
+                      ? wfc::mscomctl::valid_button_style(number)
+                      : wfc::mscomctl::valid_button_value(number))) {
                 failure = NativeFailure{380, "Invalid property value"};
                 return true;
             }
             item->p[member] = converted;
-            if (member == "value" && number == 1.0 &&
-                static_cast<int>(item_number(item, "style")) == kStyleGroup) {
+            if (member == "value" &&
+                wfc::mscomctl::value_presses_group(
+                    static_cast<int>(item_number(item, "style")), number)) {
                 press_group(control, item);
             }
             return true;

@@ -1,0 +1,18 @@
+ui Form1.Tool1 button off
+ui Form1.Tool1 button sep
+ui Form1.Tool1 button ph
+ui Form1.Tool1 button chk
+ui Form1.Tool1 button chk
+ui Form1.Tool1 button ga
+ui Form1.Tool1 button gb
+ui Form1.Tool1 button gb
+ui Form1.Tool1 button 2
+ui Form1.Tool1 button 99
+ui Form1.Tool1 dropdown plain
+ui Form1.Tool1 dropdown dd
+ui Form1.Tool1 dropdown ddoff
+ui Form1.Tool1 menu dd m1
+ui Form1.Tool1 menu dd mdis
+ui Form1.Tool1 menu dd nope
+ui Form1.Tool1 menu plain m1
+close Form1
