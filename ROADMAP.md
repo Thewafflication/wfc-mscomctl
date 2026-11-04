@@ -55,8 +55,11 @@ item is present, tested and passing in CI; an unchecked one is planned.
   - [x] Toolbar button rules (styles, values, presses, drop-down,
         SaveToolbar text): `toolbar.hpp` (ADR-0010 step 3), pinned by
         corpus 223 and tested by `toolbar_test`.
-  - [ ] TreeView, ListView, ImageList and ImageCombo, and the COM
-        collections (ADR-0010 steps 4 to 7).
+  - [x] TreeView rules (node placement, sort, paths, rows, hit test, keys,
+        SingleSel, label edit): `tree.hpp` (ADR-0010 step 4), pinned by
+        corpus 224 and tested by `tree_test`.
+  - [ ] ListView, ImageList and ImageCombo, and the COM collections
+        (ADR-0010 steps 5 to 7).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 

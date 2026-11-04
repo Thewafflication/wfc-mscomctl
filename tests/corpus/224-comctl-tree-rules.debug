@@ -1,0 +1,65 @@
+built: r(Root) -a(Zulu) --a1(Kid) ---a11(Grandkid) -b(alpha) r0(Zeroth root) r2(Second root) sel=-
+rel 5 35607 Invalid relationship
+rel -1 35607 
+rel abc 13 
+relative 99 35600 Index out of bounds
+key 5 13 
+no key 0  8 
+rel no relative 0 True
+readonly 383 
+readonly children 383 
+Root > Zulu > Kid > Grandkid
+TrueTrueTrue
+False
+collapse1 a
+FalseFalse
+node sorted: r(Root) -b(alpha) -a(Zulu) --a1(Kid) ---a11(Grandkid) r0(Zeroth root) r2(Second root) (no key) e5(relationship without relative) sel=-
+sorted add: r(Root) -b(alpha) -m(Mike) -a(Zulu) --a1(Kid) ---a11(Grandkid) r0(Zeroth root) r2(Second root) (no key) e5(relationship without relative) sel=-
+tree sorted: (no key) e5(relationship without relative) r(Root) -b(alpha) -m(Mike) -a(Zulu) --a1(Kid) ---a11(Grandkid) r2(Second root) r0(Zeroth root) sel=-
+expand1 a
+visible 4 
+collapse1 a
+visible collapsed 4 
+expand1 a
+hit 0 -
+hit 240 e5-
+hit 480 r-
+hit 720 b-
+hit 960 m-
+hit 1200 a-
+indent-
+hit args 450 
+removed: (no key) e5(relationship without relative) r(Root) -b(alpha) -m(Mike) r2(Second root) r0(Zeroth root) sel=-
+ 7 
+tree2: p(P) -p1(P1) q(Q) -q1(Q1) --q11(Q11) sel=-
+nodeclick1 r0
+check1 e5True
+check1 mTrue
+collapse1 r
+nodeclick1 m
+nodeclick1 m
+before1 m
+after1 []
+before1 m
+after1 [Renamed]
+nodeclick1 r0
+nodeclick1 r0
+before1 r0
+before1 r0
+before1 r0
+expand2 p
+nodeclick2 p
+nodeclick2 p
+collapse2 p
+expand2 q
+nodeclick2 q
+expand2 q1
+nodeclick2 q1
+expand2 q11
+nodeclick2 q11
+collapse2 q11
+expand2 p
+nodeclick2 p
+collapse2 p
+nodeclick2 q
+expand2 p

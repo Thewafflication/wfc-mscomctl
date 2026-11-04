@@ -1887,7 +1887,7 @@ void sort_kids(ControlObject& control, std::vector<long>& kids) {
         const ItemPtr left = node_by_id(control, a);
         const ItemPtr right = node_by_id(control, b);
         return left != nullptr && right != nullptr &&
-               lower_text(node_text(left)) < lower_text(node_text(right));
+               wfc::mscomctl::text_before(node_text(left), node_text(right));
     });
 }
 
@@ -1990,12 +1990,14 @@ void select_node(ControlObject& control, const ItemPtr& node) {
                 failure = NativeFailure{13, "Type mismatch"};
                 return false;
             }
-            relationship =
-                static_cast<long>(std::nearbyint(as_double(way->second)));
-            if (relationship < 0 || relationship > 4) {
-                failure = NativeFailure{35607, "Invalid relationship"};
+            const auto checked =
+                wfc::mscomctl::check_relationship(as_double(way->second));
+            if (!checked.valid) {
+                failure = NativeFailure{wfc::mscomctl::kInvalidRelationship,
+                                        "Invalid relationship"};
                 return false;
             }
+            relationship = checked.relationship;
         }
     }
     auto created = std::make_shared<CItem>();
@@ -2032,27 +2034,19 @@ void select_node(ControlObject& control, const ItemPtr& node) {
     ItemPtr parent;
     std::size_t at = 0;
     if (relative == nullptr) {
-        parent = nullptr;
-        at = kids_of(control, nullptr).size();
-    } else if (relationship == 4) {  // tvwChild
-        parent = relative;
-        at = kids_of(control, parent).size();
+        at = wfc::mscomctl::place_node(
+                 false, relationship, kids_of(control, nullptr).size(), 0, 0, 0)
+                 .at;
     } else {
-        parent = node_parent(control, relative);
-        auto& siblings = kids_of(control, parent);
+        const ItemPtr relative_parent = node_parent(control, relative);
+        const auto& siblings = kids_of(control, relative_parent);
         const auto where =
             std::find(siblings.begin(), siblings.end(), relative->id);
-        const std::size_t position =
-            static_cast<std::size_t>(where - siblings.begin());
-        if (relationship == 0) {
-            at = 0;
-        } else if (relationship == 1) {
-            at = siblings.size();
-        } else if (relationship == 2) {
-            at = position + 1U;
-        } else {
-            at = position;
-        }
+        const auto placement = wfc::mscomctl::place_node(
+            true, relationship, 0, relative->kids.size(), siblings.size(),
+            static_cast<std::size_t>(where - siblings.begin()));
+        parent = placement.as_child ? relative : relative_parent;
+        at = placement.at;
     }
     created->parent = parent == nullptr ? 0 : parent->id;
     auto& siblings = kids_of(control, parent);
@@ -2103,14 +2097,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
     for (ItemPtr at = node; at != nullptr; at = node_parent(control, at)) {
         parts.push_back(node_text(at));
     }
-    std::string path;
-    for (auto part = parts.rbegin(); part != parts.rend(); ++part) {
-        if (!path.empty()) {
-            path += separator;
-        }
-        path += *part;
-    }
-    return path;
+    std::reverse(parts.begin(), parts.end());
+    return wfc::mscomctl::join_path(parts, separator);
 }
 
 [[nodiscard]] bool node_get(HookCtx& ctx, const std::string& member,
@@ -2216,6 +2204,19 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
     return false;
 }
 
+// The rows of the tree as the library sees them.
+[[nodiscard]] std::vector<wfc::mscomctl::Row> tree_rows(
+    const std::vector<std::pair<ItemPtr, int>>& rows) {
+    std::vector<wfc::mscomctl::Row> result;
+    for (const auto& [node, depth] : rows) {
+        const std::string text = lower_text(node_text(node));
+        result.push_back({depth, node_text(node).size(),
+                          text.empty() ? '\0' : text.front(),
+                          !node->kids.empty(), flag(node, "expanded")});
+    }
+    return result;
+}
+
 [[nodiscard]] bool tree_member(Interpreter& in, ControlObject& self,
                                const std::string& member,
                                std::vector<CallArgument>& arguments,
@@ -2233,12 +2234,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
     if (member == "getvisiblecount") {
         std::vector<std::pair<ItemPtr, int>> rows;
         visible_rows(self, nullptr, 0, rows);
-        const double height = number_property(self, "height");
-        const std::size_t fits = height > 0.0
-                                     ? static_cast<std::size_t>(height / 240.0)
-                                     : rows.size();
-        result = Value{static_cast<Integer>(
-            std::min(rows.size(), std::max<std::size_t>(fits, 1)))};
+        result = Value{static_cast<Integer>(wfc::mscomctl::visible_count(
+            rows.size(), number_property(self, "height")))};
         return true;
     }
     if (member == "hittest") {
@@ -2250,21 +2247,10 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
         const double y = as_double(arguments[1].value);
         std::vector<std::pair<ItemPtr, int>> rows;
         visible_rows(self, nullptr, 0, rows);
-        const double indent = number_property(self, "indentation") > 0.0
-                                  ? number_property(self, "indentation")
-                                  : 285.0;
         result = Value{Nothing{}};
-        const double row = std::floor(y / 240.0);
-        if (y >= 0.0 && row >= 0.0 &&
-            static_cast<std::size_t>(row) < rows.size()) {
-            const auto& [node, depth] = rows[static_cast<std::size_t>(row)];
-            const double left = static_cast<double>(depth + 1) * indent;
-            const double right =
-                left + 120.0 +
-                95.0 * static_cast<double>(node_text(node).size());
-            if (x >= left && x < right) {
-                result = node_value(self, node);
-            }
+        if (const auto hit = wfc::mscomctl::hit_row(
+                tree_rows(rows), x, y, number_property(self, "indentation"))) {
+            result = node_value(self, rows[*hit].first);
         }
         return true;
     }
@@ -2298,15 +2284,15 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
         if (self.values.contains("singlesel") &&
             std::holds_alternative<bool>(self.values.at("singlesel")) &&
             std::get<bool>(self.values.at("singlesel"))) {
-            if (previous != nullptr && previous != node) {
-                bool ancestor = false;
-                for (ItemPtr at = node_parent(self, node); at != nullptr;
-                     at = node_parent(self, at)) {
-                    ancestor = ancestor || at == previous;
-                }
-                if (!ancestor && !set_expanded(in, self, previous, false)) {
-                    return false;
-                }
+            bool ancestor = false;
+            for (ItemPtr at = node_parent(self, node); at != nullptr;
+                 at = node_parent(self, at)) {
+                ancestor = ancestor || at == previous;
+            }
+            if (wfc::mscomctl::collapses_previous(previous != nullptr,
+                                                  previous == node, ancestor) &&
+                !set_expanded(in, self, previous, false)) {
+                return false;
             }
             if (!set_expanded(in, self, node, true)) {
                 return false;
@@ -2316,7 +2302,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
               raise_event(in, self, "Click", {}))) {
             return false;
         }
-        if (second_click && number_property(self, "labeledit") != 1.0) {
+        if (wfc::mscomctl::click_starts_edit(
+                second_click, number_property(self, "labeledit"))) {
             bool started = false;
             return begin_label_edit(in, self, started);
         }
@@ -2381,57 +2368,27 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
                 at = i;
             }
         }
-        const std::string key = lower_text(rest);
-        if (rows.empty()) {
-            return true;
-        }
-        if (at == rows.size()) {
-            select_node(self, rows.front().first);
-            return true;
-        }
-        if (key == "down") {
-            select_node(self, rows[(at + 1U) % rows.size()].first);
-        } else if (key == "up") {
-            select_node(self,
-                        rows[(at + rows.size() - 1U) % rows.size()].first);
-        } else if (key.size() == 1U && key != " ") {
-            // Type-ahead: the next visible node starting with the character.
-            for (std::size_t step = 1; step <= rows.size(); ++step) {
-                const auto& candidate = rows[(at + step) % rows.size()].first;
-                const std::string text = lower_text(node_text(candidate));
-                if (!text.empty() && text.front() == key.front()) {
-                    select_node(self, candidate);
-                    break;
-                }
-            }
-        } else if (key == "home") {
-            select_node(self, rows.front().first);
-        } else if (key == "end") {
-            select_node(self, rows.back().first);
-        } else if (key == "right") {
-            if (!current->kids.empty() && !flag(current, "expanded")) {
+        const bool boxes =
+            self.values.contains("checkboxes") &&
+            std::holds_alternative<bool>(self.values.at("checkboxes")) &&
+            std::get<bool>(self.values.at("checkboxes"));
+        const auto effect = wfc::mscomctl::key_effect(tree_rows(rows), at,
+                                                      lower_text(rest), boxes);
+        using Kind = wfc::mscomctl::KeyEffect::Kind;
+        switch (effect.kind) {
+            case Kind::select:
+                select_node(self, rows[effect.row].first);
+                break;
+            case Kind::expand:
                 return set_expanded(in, self, current, true);
-            }
-            if (!current->kids.empty()) {
-                select_node(self, node_by_id(self, current->kids.front()));
-            }
-        } else if (key == "left") {
-            if (flag(current, "expanded")) {
+            case Kind::collapse:
                 return set_expanded(in, self, current, false);
-            }
-            if (const ItemPtr parent = node_parent(self, current)) {
-                select_node(self, parent);
-            }
-        } else if (key == "space") {
-            const bool boxes =
-                self.values.contains("checkboxes") &&
-                std::holds_alternative<bool>(self.values.at("checkboxes")) &&
-                std::get<bool>(self.values.at("checkboxes"));
-            if (boxes) {
+            case Kind::toggle:
                 current->p["checked"] = Value{!flag(current, "checked")};
                 return raise_event(in, self, "NodeCheck",
                                    {node_value(self, current)});
-            }
+            case Kind::none:
+                break;
         }
         return true;
     }
