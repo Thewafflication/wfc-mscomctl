@@ -1,0 +1,23 @@
+ui Form1.List1 click k2
+ui Form1.List1 click k3 ctrl
+ui Form1.List1 click k3 ctrl
+ui Form1.List1 click k1
+ui Form1.List1 click k1
+ui Form1.List1 canceledit
+ui Form1.List1 click k1
+ui Form1.List1 edit Renamed
+ui Form1.List1 click k4
+ui Form1.List1 click k4
+ui Form1.List1 edit bad
+ui Form1.List1 edit nobody
+ui Form1.List1 dblclick k2
+ui Form1.List1 click nope
+ui Form1.List1 check k1
+ui Form1.List1 columnclick c2
+ui Form1.List1 columnclick 1
+ui Form1.List1 columnclick nope
+ui Form1.List2 click x
+ui Form1.List2 click x
+ui Form1.List2 edit Manual
+ui Form1.List2 check x
+close Form1

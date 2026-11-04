@@ -13,6 +13,7 @@
 #define WFC_MSCOMCTL_TREE_HPP
 
 #include <wfc/mscomctl/items.hpp>
+#include <wfc/mscomctl/labeledit.hpp>
 
 #include <algorithm>
 #include <cmath>
@@ -83,18 +84,6 @@ struct Placement {
         default:
             return {false, relative_position};
     }
-}
-
-// The order of siblings when a tree or a node is Sorted: by text, without
-// regard to case, and stable.
-[[nodiscard]] inline bool text_before(const std::string_view left,
-                                      const std::string_view right) {
-    const auto lower = [](const char c) {
-        return c >= 'A' && c <= 'Z' ? static_cast<char>(c - 'A' + 'a') : c;
-    };
-    return std::lexicographical_compare(
-        left.begin(), left.end(), right.begin(), right.end(),
-        [&](const char a, const char b) { return lower(a) < lower(b); });
 }
 
 // FullPath: the texts from the root down, joined by PathSeparator. A text
@@ -230,20 +219,6 @@ struct KeyEffect {
                                              const bool previous_is_clicked,
                                              const bool previous_is_ancestor) {
     return has_previous && !previous_is_clicked && !previous_is_ancestor;
-}
-
-// LabelEdit: 0 is lvwAutomatic, 1 is lvwManual. A second click on the selected
-// node starts an edit only when it is automatic.
-[[nodiscard]] inline bool click_starts_edit(const bool second_click,
-                                            const double label_edit) {
-    return second_click && label_edit != 1.0;
-}
-
-// The end of an edit keeps the text only if there was one (the user did not
-// press Escape) and AfterLabelEdit left Cancel at zero.
-[[nodiscard]] constexpr bool keeps_edited_text(const bool has_text,
-                                               const bool cancelled) {
-    return has_text && !cancelled;
 }
 
 }  // namespace wfc::mscomctl

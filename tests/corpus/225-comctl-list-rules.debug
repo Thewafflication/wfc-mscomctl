@@ -1,0 +1,69 @@
+added: k1 k5 k2 k3 k4 
+sorted: k2 k3 k1 k4 k5 
+descending: k5 k4 k1 k2 k3 
+key 1: k4 k5 k3 k1 k2 
+key past: k4 k5 k3 k1 k2 
+key 0: k3 k2 k1 k4 k5 
+ 3 []farcharlie
+neg put 35600 
+get past 35600 
+get text 450 
+view -1 380 
+view 4 380 
+readonly 383 
+select non item 13 
+select other 13 
+no key 0  6 
+view 3  0  240  1700  240  0  960 
+view 2  0  0  1440  240  0  720 
+view 1  0  0  1440  240  1440  240 
+view 0  0  0  1200  1100  1200  1100 
+no header 0  240 
+hit 0 -
+hit 250 k3
+hit 500 k2
+hit 750 k1
+hit 1000 k4
+hit 1250 k5
+hit 1500 
+hit xk3-
+findk3k3k3k3k4k3k3-
+find start 35601 
+find args 450 
+multi: k3=False k2=False k1=True k4=True k5=False =False sel=k1
+off: k3=False k2=False k1=False k4=True k5=False =False sel=k4
+set: k3=False k2=True k1=False k4=False k5=False =False sel=k2
+nothing: k3=False k2=False k1=False k4=False k5=False =False sel=-
+single: other=False x=False y=True sel=y
+first visibleotherTrueTrue
+list2: other x y 
+itemclick1 k2
+click1
+itemclick1 k3
+click1
+itemclick1 k3
+click1
+itemclick1 k1
+click1
+itemclick1 k1
+click1
+before1 k1
+after1 []
+itemclick1 k1
+click1
+before1 k1
+after1 [Renamed]
+itemclick1 k4
+click1
+itemclick1 k4
+click1
+before1 k4
+before1 k4
+before1 k4
+itemclick1 k2
+click1
+dblclick1
+column1 c2
+column1 c1
+itemclick2 x
+itemclick2 x

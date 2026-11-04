@@ -1,0 +1,4 @@
+Type=Exe
+Form=225-comctl-list-rules.frm
+Startup="Form1"
+WfcUiScript=225-comctl-list-rules.ui

@@ -13,6 +13,7 @@
 #ifndef WFC_MSCOMCTL_ITEMS_HPP
 #define WFC_MSCOMCTL_ITEMS_HPP
 
+#include <algorithm>
 #include <cmath>
 #include <cstddef>
 #include <string>
@@ -210,6 +211,20 @@ constexpr std::size_t kMaxPanels = 16;
         return position - 1U;
     }
     return count > 1U ? 1U : count;
+}
+
+// The order of items when a tree or a list is sorted: by text, without regard
+// to case (ASCII), bytes compared as unsigned, and stable when used with
+// std::stable_sort.
+[[nodiscard]] inline bool text_before(const std::string_view left,
+                                      const std::string_view right) {
+    const auto lower = [](const char c) {
+        return static_cast<unsigned char>(c >= 'A' && c <= 'Z' ? c - 'A' + 'a'
+                                                               : c);
+    };
+    return std::lexicographical_compare(
+        left.begin(), left.end(), right.begin(), right.end(),
+        [&](const char a, const char b) { return lower(a) < lower(b); });
 }
 
 }  // namespace wfc::mscomctl

@@ -1841,7 +1841,8 @@ std::map<std::string, std::string>& saved_toolbars() {
                             FormSupport::offset_of(in))) {
         return false;
     }
-    if (text.has_value() && whole_value(after[0]).value_or(0) == 0) {
+    if (wfc::mscomctl::keeps_edited_text(
+            text.has_value(), whole_value(after[0]).value_or(0) != 0)) {
         accepted = std::holds_alternative<std::string>(after[1])
                        ? std::get<std::string>(after[1])
                        : *text;
@@ -2335,7 +2336,8 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
             return true;
         }
         if (!self.values.contains("_editing")) {
-            if (number_property(self, "labeledit") == 1.0) {
+            if (!wfc::mscomctl::scripted_edit_may_start(
+                    false, number_property(self, "labeledit"))) {
                 return true;
             }
             bool started = false;
@@ -2419,15 +2421,14 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
 // The text a list item sorts by: its own text (SortKey 0) or a sub item's.
 [[nodiscard]] std::string sort_text(ControlObject& control,
                                     const ItemPtr& item) {
-    const long key = static_cast<long>(number_property(control, "sortkey"));
-    if (key <= 0) {
-        return lower_text(text_of_prop(item, "text"));
+    const auto source = wfc::mscomctl::sort_source(
+        static_cast<long>(number_property(control, "sortkey")),
+        item->sub.size());
+    if (!source.has_value()) {
+        return {};
     }
-    if (static_cast<std::size_t>(key) <= item->sub.size()) {
-        return lower_text(text_of_prop(
-            item->sub[static_cast<std::size_t>(key) - 1U], "text"));
-    }
-    return {};
+    return *source == 0 ? text_of_prop(item, "text")
+                        : text_of_prop(item->sub[*source - 1U], "text");
 }
 
 void sort_list_items(ControlObject& control) {
@@ -2435,49 +2436,24 @@ void sort_list_items(ControlObject& control) {
     const bool descending = number_property(control, "sortorder") == 1.0;
     std::stable_sort(items.begin(), items.end(),
                      [&](const ItemPtr& left, const ItemPtr& right) {
-                         const std::string a = sort_text(control, left);
-                         const std::string b = sort_text(control, right);
-                         return descending ? b < a : a < b;
+                         return wfc::mscomctl::list_precedes(
+                             sort_text(control, left),
+                             sort_text(control, right), descending);
                      });
 }
 
 // Positions of the items for the current view (twips).
 [[nodiscard]] std::vector<TabRect> list_layout(ControlObject& control) {
-    std::vector<TabRect> rects;
-    const long view = static_cast<long>(number_property(control, "view"));
-    const double width = number_property(control, "width");
-    const double height = number_property(control, "height");
-    const auto& items = top_list(control, "listitem");
-    double header = 0.0;
-    double row_width = 0.0;
-    if (view == 3) {
-        header = control_flag(control, "hidecolumnheaders") ? 0.0 : 240.0;
-        for (const auto& column : top_list(control, "columnheader")) {
-            row_width += item_number(column, "width");
-        }
+    wfc::mscomctl::ListOptions options;
+    options.view = static_cast<long>(number_property(control, "view"));
+    options.width = number_property(control, "width");
+    options.height = number_property(control, "height");
+    options.hide_headers = control_flag(control, "hidecolumnheaders");
+    for (const auto& column : top_list(control, "columnheader")) {
+        options.columns_width += item_number(column, "width");
     }
-    const double cell_width = view == 0 ? 1200.0 : 1440.0;
-    const double cell_height = view == 0 ? 1100.0 : 240.0;
-    const long per_row =
-        std::max<long>(1, static_cast<long>(width / cell_width));
-    const long per_column = std::max<long>(
-        1, static_cast<long>((height > 0 ? height : 2400.0) / cell_height));
-    for (std::size_t i = 0; i < items.size(); ++i) {
-        const long n = static_cast<long>(i);
-        if (view == 3) {
-            rects.push_back({0.0, header + 240.0 * static_cast<double>(n),
-                             row_width, 240.0});
-        } else if (view == 2) {
-            rects.push_back({cell_width * static_cast<double>(n / per_column),
-                             cell_height * static_cast<double>(n % per_column),
-                             cell_width, cell_height});
-        } else {
-            rects.push_back({cell_width * static_cast<double>(n % per_row),
-                             cell_height * static_cast<double>(n / per_row),
-                             cell_width, cell_height});
-        }
-    }
-    return rects;
+    return wfc::mscomctl::list_layout(top_list(control, "listitem").size(),
+                                      options);
 }
 
 [[nodiscard]] ItemPtr first_selected_item(ControlObject& control) {
@@ -2491,13 +2467,19 @@ void sort_list_items(ControlObject& control) {
 
 void select_list_item(ControlObject& control, const ItemPtr& item,
                       const bool extend) {
-    for (const auto& other : top_list(control, "listitem")) {
-        if (other == item) {
-            other->p["selected"] =
-                Value{extend ? !flag(other, "selected") : true};
-        } else if (!extend) {
-            other->p["selected"] = Value{false};
-        }
+    auto& items = top_list(control, "listitem");
+    std::vector<bool> selected;
+    for (const auto& other : items) {
+        selected.push_back(flag(other, "selected"));
+    }
+    const long position = position_of(items, item);
+    if (position == 0) {
+        return;
+    }
+    wfc::mscomctl::select_item(selected,
+                               static_cast<std::size_t>(position) - 1U, extend);
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        items[i]->p["selected"] = Value{static_cast<bool>(selected[i])};
     }
 }
 
@@ -2512,8 +2494,10 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
             return true;
         }
         const long index = static_cast<long>(as_double(arguments[0].value));
-        if (index < 0 || static_cast<std::size_t>(index) > item->sub.size()) {
-            failure = failure_of(wfc::mscomctl::Status::index_out_of_bounds);
+        if (const auto status =
+                wfc::mscomctl::check_sub_item_read(index, item->sub.size());
+            status != wfc::mscomctl::Status::ok) {
+            failure = failure_of(status);
             return true;
         }
         result =
@@ -2567,8 +2551,9 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
             return true;
         }
         const long index = static_cast<long>(as_double(arguments[0].value));
-        if (index < 0) {
-            failure = failure_of(wfc::mscomctl::Status::index_out_of_bounds);
+        if (const auto status = wfc::mscomctl::check_sub_item_write(index);
+            status != wfc::mscomctl::Status::ok) {
+            failure = failure_of(status);
             return true;
         }
         Value text = value;
@@ -2579,7 +2564,9 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
             item->p["text"] = text;
             return true;
         }
-        while (item->sub.size() < static_cast<std::size_t>(index)) {
+        for (std::size_t missing =
+                 wfc::mscomctl::sub_items_to_add(index, item->sub.size());
+             missing > 0; --missing) {
             auto created = std::make_shared<CItem>();
             created->id = state_of(control).next_id++;
             for (const auto& property : spec_of("listsubitem").props) {
@@ -2600,7 +2587,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
                             ? std::get<bool>(value)
                             : is_number(value) && as_double(value) != 0.0;
         if (on) {
-            if (!control_flag(control, "multiselect")) {
+            if (wfc::mscomctl::selected_replaces(
+                    control_flag(control, "multiselect"))) {
                 select_list_item(control, item, false);
             }
             item->p["selected"] = Value{true};
@@ -2657,8 +2645,7 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
             failure = NativeFailure{450, "Wrong number of arguments"};
             return true;
         }
-        const std::string wanted =
-            lower_text(FormSupport::text_of(arguments[0].value));
+        const std::string wanted = FormSupport::text_of(arguments[0].value);
         const long where =
             arguments.size() > 1U && !arguments[1].omitted
                 ? static_cast<long>(as_double(arguments[1].value))
@@ -2677,9 +2664,9 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         result = Value{Nothing{}};
         for (std::size_t i = start; i < items.size(); ++i) {
             std::vector<std::string> candidates;
-            if (where == 0) {
+            if (where == wfc::mscomctl::kFindText) {
                 candidates.push_back(text_of_prop(items[i], "text"));
-            } else if (where == 1) {
+            } else if (where == wfc::mscomctl::kFindSubItem) {
                 for (const auto& sub : items[i]->sub) {
                     candidates.push_back(text_of_prop(sub, "text"));
                 }
@@ -2688,8 +2675,7 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
                     FormSupport::text_of(items[i]->p.at("tag")));
             }
             for (const auto& candidate : candidates) {
-                const std::string text = lower_text(candidate);
-                if (partial ? text.rfind(wanted, 0) == 0 : text == wanted) {
+                if (wfc::mscomctl::find_matches(candidate, wanted, partial)) {
                     result = list_item_value(self, items[i]);
                     return true;
                 }
@@ -2707,13 +2693,9 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         const auto rects = list_layout(self);
         const auto& items = top_list(self, "listitem");
         result = Value{Nothing{}};
-        for (std::size_t i = 0; i < rects.size() && i < items.size(); ++i) {
-            const TabRect& rect = rects[i];
-            if (x >= rect.left && x < rect.left + rect.width && y >= rect.top &&
-                y < rect.top + rect.height) {
-                result = list_item_value(self, items[i]);
-                break;
-            }
+        if (const auto hit = wfc::mscomctl::hit_rect(rects, x, y);
+            hit.has_value() && *hit < items.size()) {
+            result = list_item_value(self, items[*hit]);
         }
         return true;
     }
@@ -2756,8 +2738,7 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         if (!coerce_property(in, converted, "Integer", failure)) {
             return true;
         }
-        const double number = as_double(converted);
-        if (number < 0 || number > 3) {
+        if (!wfc::mscomctl::valid_view(as_double(converted))) {
             failure = NativeFailure{380, "Invalid property value"};
             return true;
         }
@@ -2799,18 +2780,21 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         if (item == nullptr) {
             return true;
         }
-        const bool second_click = flag(item, "selected") && modifier != "ctrl";
+        const bool second_click = wfc::mscomctl::is_second_click(
+            flag(item, "selected"), modifier == "ctrl");
         select_list_item(
             self, item,
-            modifier == "ctrl" && control_flag(self, "multiselect"));
+            wfc::mscomctl::click_extends(modifier == "ctrl",
+                                         control_flag(self, "multiselect")));
         bool ok =
             raise_event(in, self, "ItemClick", {list_item_value(self, item)}) &&
             raise_event(in, self, "Click", {});
         if (ok && action == "dblclick") {
             ok = raise_event(in, self, "DblClick", {});
         }
-        if (ok && action == "click" && second_click &&
-            number_property(self, "labeledit") != 1.0) {
+        if (ok && action == "click" &&
+            wfc::mscomctl::click_starts_edit(
+                second_click, number_property(self, "labeledit"))) {
             bool started = false;
             ok = begin_label_edit(in, self, started);
         }
@@ -2842,7 +2826,8 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
             return true;
         }
         if (!self.values.contains("_editing")) {
-            if (number_property(self, "labeledit") == 1.0) {
+            if (!wfc::mscomctl::scripted_edit_may_start(
+                    false, number_property(self, "labeledit"))) {
                 return true;
             }
             bool started = false;

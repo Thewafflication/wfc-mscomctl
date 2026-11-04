@@ -58,8 +58,12 @@ item is present, tested and passing in CI; an unchecked one is planned.
   - [x] TreeView rules (node placement, sort, paths, rows, hit test, keys,
         SingleSel, label edit): `tree.hpp` (ADR-0010 step 4), pinned by
         corpus 224 and tested by `tree_test`.
-  - [ ] ListView, ImageList and ImageCombo, and the COM collections
-        (ADR-0010 steps 5 to 7).
+  - [x] ListView rules (views, positions, hit test, sort, FindItem,
+        SubItems, selection) and the label-edit rules: `list.hpp`,
+        `labeledit.hpp` (ADR-0010 step 5), pinned by corpus 225 and tested
+        by `list_test`.
+  - [ ] ImageList and ImageCombo, and the COM collections (ADR-0010
+        steps 6 and 7).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 
