@@ -595,10 +595,20 @@ using ItemPtr = std::shared_ptr<CItem>;
     return nullptr;
 }
 
+// The Key of an item as text (empty when it has none).
+[[nodiscard]] std::string_view key_text(const Value& key) {
+    const auto* text = std::get_if<std::string>(&key);
+    return text != nullptr ? std::string_view{*text} : std::string_view{};
+}
+
+// The rules for finding items are the library's (items.hpp).
 [[nodiscard]] bool same_key(const Value& left, const std::string& right) {
-    const auto* text = std::get_if<std::string>(&left);
-    return text != nullptr && !text->empty() &&
-           lower_text(*text) == lower_text(right);
+    return wfc::mscomctl::same_key(key_text(left), right);
+}
+
+[[nodiscard]] NativeFailure failure_of(const wfc::mscomctl::Status status) {
+    return NativeFailure{static_cast<Integer>(wfc::mscomctl::error_number(status)),
+                         wfc::mscomctl::error_message(status)};
 }
 
 // A reference to one list of items: a top-level collection of a control, or
@@ -641,35 +651,34 @@ struct ListRef {
 // Finds an item by index (number) or key (string).
 [[nodiscard]] ItemPtr find_item(const std::vector<ItemPtr>& items,
                                 const Value& selector, NativeFailure& failure) {
+    auto chosen = wfc::mscomctl::Selector::invalid();
     if (const auto* text = std::get_if<std::string>(&selector)) {
-        for (const auto& item : items) {
-            if (same_key(item->p.at("key"), *text)) {
-                return item;
-            }
-        }
-        failure = NativeFailure{kElementNotFound, "Element not found"};
+        chosen = wfc::mscomctl::Selector::key(*text);
+    } else if (is_number(selector)) {
+        chosen = wfc::mscomctl::Selector::index(as_double(selector));
+    }
+    const auto found = wfc::mscomctl::find(
+        items.size(), chosen,
+        [&](const std::size_t i) { return key_text(items[i]->p.at("key")); });
+    if (found.status != wfc::mscomctl::Status::ok) {
+        failure = failure_of(found.status);
         return nullptr;
     }
-    if (!is_number(selector)) {
-        failure = NativeFailure{13, "Type mismatch"};
-        return nullptr;
-    }
-    const long index = static_cast<long>(std::nearbyint(as_double(selector)));
-    if (index < 1 || static_cast<std::size_t>(index) > items.size()) {
-        failure = NativeFailure{kIndexOutOfBounds, "Index out of bounds"};
-        return nullptr;
-    }
-    return items[static_cast<std::size_t>(index) - 1U];
+    return items[found.position];
 }
 
 [[nodiscard]] bool key_in_use(const std::vector<ItemPtr>& items,
                               const std::string& key, const ItemPtr& except) {
-    for (const auto& item : items) {
-        if (item != except && same_key(item->p.at("key"), key)) {
-            return true;
+    std::size_t skip = items.size();
+    for (std::size_t i = 0; i < items.size(); ++i) {
+        if (items[i] == except) {
+            skip = i;
+            break;
         }
     }
-    return false;
+    return wfc::mscomctl::key_in_use(
+        items.size(), key, skip,
+        [&](const std::size_t i) { return key_text(items[i]->p.at("key")); });
 }
 
 }  // namespace
@@ -855,14 +864,13 @@ namespace {
             failure = NativeFailure{13, "Type mismatch"};
             return false;
         }
-        const long wanted =
-            static_cast<long>(std::nearbyint(as_double(index->second)));
-        if (wanted < 1 ||
-            static_cast<std::size_t>(wanted) > items.size() + 1U) {
-            failure = NativeFailure{kIndexOutOfBounds, "Index out of bounds"};
+        const double wanted = as_double(index->second);
+        const auto where = wfc::mscomctl::insert_position(items.size(), &wanted);
+        if (where.status != wfc::mscomctl::Status::ok) {
+            failure = failure_of(where.status);
             return false;
         }
-        position = static_cast<std::size_t>(wanted) - 1U;
+        position = where.position;
         if (ref.kind == "listimage" && control.values.contains("_bound") &&
             position != items.size()) {
             failure = NativeFailure{
@@ -904,8 +912,7 @@ namespace {
     if (const auto* text = std::get_if<std::string>(&key);
         text != nullptr && !text->empty() &&
         key_in_use(items, *text, nullptr)) {
-        failure =
-            NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
+        failure = failure_of(wfc::mscomctl::Status::key_not_unique);
         return false;
     }
     if (ref.kind == "listimage") {

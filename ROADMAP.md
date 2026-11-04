@@ -48,9 +48,10 @@ item is present, tested and passing in CI; an unchecked one is planned.
         of tabs and buttons and the rule for a group of buttons; the
         evaluator builds the item specs and calls it. Tested by
         `layout_test`.
-  - [ ] StatusBar, TreeView, ListView, ImageList and ImageCombo, and the
-        item collections (keys, indexes, selection) of every control: still
-        the evaluator's, because they raise events and hold `Value`s.
+  - [x] Keys, indexes and the collection errors of every control:
+        `items.hpp` (ADR-0010 step 1). Tested by `items_test`.
+  - [ ] Selection, TreeView, ListView, ImageList and ImageCombo, and the
+        COM collections (ADR-0010 steps 2 to 7).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 
