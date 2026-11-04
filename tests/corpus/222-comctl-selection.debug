@@ -1,0 +1,14 @@
+first         a
+added         a              4 
+remove first  b
+remove middle b
+remove other  b              1 
+remove last   none           0 
+clear         none           0 
+after clear   z
+remove end    z
+panel          17            35609        A status bar holds at most sixteen panels
+panels         16 
+images         2            front
+bound insert   35615        Images can only be appended to a bound ImageList
+bound append   0             3 

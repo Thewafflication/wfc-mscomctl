@@ -28,6 +28,8 @@ enum class Status {
     element_not_found,    // a key that no item has
     index_out_of_bounds,  // an index outside the collection
     key_not_unique,       // a Key another item has
+    panels_full,          // a status bar with sixteen panels
+    image_list_bound,     // an insert in an ImageList bound to a control
 };
 
 // The Visual Basic error number of a failure (0 for ok).
@@ -43,6 +45,10 @@ enum class Status {
             return 35600;
         case Status::key_not_unique:
             return 35602;
+        case Status::panels_full:
+            return 35609;
+        case Status::image_list_bound:
+            return 35615;
     }
     return 0;
 }
@@ -60,6 +66,10 @@ enum class Status {
             return "Index out of bounds";
         case Status::key_not_unique:
             return "Key is not unique in collection";
+        case Status::panels_full:
+            return "A status bar holds at most sixteen panels";
+        case Status::image_list_bound:
+            return "Images can only be appended to a bound ImageList";
     }
     return "";
 }
@@ -168,6 +178,38 @@ template <class KeyAt>
         return {Status::index_out_of_bounds, 0};
     }
     return {Status::ok, static_cast<std::size_t>(index) - 1U};
+}
+
+// A status bar holds at most this many panels.
+constexpr std::size_t kMaxPanels = 16;
+
+// Whether a panel can be added to a status bar of `count` panels.
+[[nodiscard]] inline Status check_panel_count(const std::size_t count) {
+    return count >= kMaxPanels ? Status::panels_full : Status::ok;
+}
+
+// An ImageList bound to a control (its images are drawn by it) can only grow
+// at the end: `position` is where an image would be inserted (0-based).
+[[nodiscard]] inline Status check_image_insert(const bool bound,
+                                               const std::size_t position,
+                                               const std::size_t count) {
+    return bound && position != count ? Status::image_list_bound : Status::ok;
+}
+
+// The first item added to a TabStrip is selected.
+[[nodiscard]] inline bool selects_first_added(const std::size_t count_after) {
+    return count_after == 1U;
+}
+
+// The position (0-based) of the tab that becomes selected when the selected
+// tab at `position` is removed from `count` tabs: the previous one, or the
+// second when the first goes; `count` itself when there is none.
+[[nodiscard]] inline std::size_t neighbor_after_removal(
+    const std::size_t position, const std::size_t count) {
+    if (position > 0) {
+        return position - 1U;
+    }
+    return count > 1U ? 1U : count;
 }
 
 }  // namespace wfc::mscomctl

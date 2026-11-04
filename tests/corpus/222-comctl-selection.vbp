@@ -1,0 +1,4 @@
+Type=Exe
+Form=222-comctl-selection.frm
+Startup="Form1"
+WfcUiScript=222-comctl-selection.ui

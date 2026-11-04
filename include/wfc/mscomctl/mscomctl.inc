@@ -545,11 +545,7 @@ std::optional<Value> comctl_default(const std::string& class_name,
 
 namespace {
 
-constexpr Integer kIndexOutOfBounds = 35600;
-constexpr Integer kElementNotFound = 35601;
-constexpr Integer kKeyNotUnique = 35602;
 constexpr Integer kReadOnlyAfterUse = 35614;
-constexpr Integer kPanelsFull = 35609;
 constexpr Integer kImageListBound = 35615;
 
 using ItemPtr = std::shared_ptr<CItem>;
@@ -607,8 +603,9 @@ using ItemPtr = std::shared_ptr<CItem>;
 }
 
 [[nodiscard]] NativeFailure failure_of(const wfc::mscomctl::Status status) {
-    return NativeFailure{static_cast<Integer>(wfc::mscomctl::error_number(status)),
-                         wfc::mscomctl::error_message(status)};
+    return NativeFailure{
+        static_cast<Integer>(wfc::mscomctl::error_number(status)),
+        wfc::mscomctl::error_message(status)};
 }
 
 // A reference to one list of items: a top-level collection of a control, or
@@ -865,24 +862,28 @@ namespace {
             return false;
         }
         const double wanted = as_double(index->second);
-        const auto where = wfc::mscomctl::insert_position(items.size(), &wanted);
+        const auto where =
+            wfc::mscomctl::insert_position(items.size(), &wanted);
         if (where.status != wfc::mscomctl::Status::ok) {
             failure = failure_of(where.status);
             return false;
         }
         position = where.position;
-        if (ref.kind == "listimage" && control.values.contains("_bound") &&
-            position != items.size()) {
-            failure = NativeFailure{
-                kImageListBound,
-                "Images can only be appended to a bound ImageList"};
-            return false;
+        if (ref.kind == "listimage") {
+            const auto status = wfc::mscomctl::check_image_insert(
+                control.values.contains("_bound"), position, items.size());
+            if (status != wfc::mscomctl::Status::ok) {
+                failure = failure_of(status);
+                return false;
+            }
         }
     }
-    if (ref.kind == "panel" && items.size() >= 16U) {
-        failure = NativeFailure{kPanelsFull,
-                                "A status bar holds at most sixteen panels"};
-        return false;
+    if (ref.kind == "panel") {
+        const auto status = wfc::mscomctl::check_panel_count(items.size());
+        if (status != wfc::mscomctl::Status::ok) {
+            failure = failure_of(status);
+            return false;
+        }
     }
     auto created = std::make_shared<CItem>();
     created->id = state_of(control).next_id++;
@@ -1007,8 +1008,7 @@ bool ComctlItem::put(Interpreter& in, const std::string& member,
         const auto* text = std::get_if<std::string>(&converted);
         if (text != nullptr && !text->empty() &&
             key_in_use(list_of(*control, ref), *text, item)) {
-            failure =
-                NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
+            failure = failure_of(wfc::mscomctl::Status::key_not_unique);
             return true;
         }
     }
@@ -1310,7 +1310,8 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
             minimum = static_cast<double>(model.min());
             maximum = static_cast<double>(model.max());
         } else {
-            // The rules of ProgressBar and Slider are the library's (range.hpp).
+            // The rules of ProgressBar and Slider are the library's
+            // (range.hpp).
             wfc::mscomctl::RangeModel model{minimum, maximum, current};
             const auto outcome = member == "min"   ? model.set_min(wanted)
                                  : member == "max" ? model.set_max(wanted)
@@ -1464,10 +1465,9 @@ using TabRect = wfc::mscomctl::Rect;
     for (const auto& tab : top_list(control, "tab")) {
         const auto caption = tab->p.at("caption");
         tabs.push_back(
-            {flag(tab, "visible"),
-             std::holds_alternative<std::string>(caption)
-                 ? std::get<std::string>(caption).size()
-                 : std::size_t{0}});
+            {flag(tab, "visible"), std::holds_alternative<std::string>(caption)
+                                       ? std::get<std::string>(caption).size()
+                                       : std::size_t{0}});
     }
     return wfc::mscomctl::tab_layout(tabs, options);
 }
@@ -1601,12 +1601,11 @@ constexpr int kStyleDropdown = wfc::mscomctl::kButtonDropdown;
     std::vector<wfc::mscomctl::ButtonSpec> buttons;
     for (const auto& button : top_list(control, "button")) {
         const auto caption = button->p.at("caption");
-        buttons.push_back(
-            {flag(button, "visible"), button_style(button),
-             item_number(button, "width"),
-             std::holds_alternative<std::string>(caption)
-                 ? std::get<std::string>(caption).size()
-                 : std::size_t{0}});
+        buttons.push_back({flag(button, "visible"), button_style(button),
+                           item_number(button, "width"),
+                           std::holds_alternative<std::string>(caption)
+                               ? std::get<std::string>(caption).size()
+                               : std::size_t{0}});
     }
     return wfc::mscomctl::button_layout(buttons, options);
 }
@@ -1994,7 +1993,7 @@ void select_node(ControlObject& control, const ItemPtr& node) {
                 relative = object->item;
             }
             if (relative == nullptr) {
-                failure = NativeFailure{kElementNotFound, "Element not found"};
+                failure = failure_of(wfc::mscomctl::Status::element_not_found);
                 return false;
             }
         } else {
@@ -2043,8 +2042,7 @@ void select_node(ControlObject& control, const ItemPtr& node) {
     if (const auto* text = std::get_if<std::string>(&created->p.at("key"));
         text != nullptr && !text->empty() &&
         key_in_use(nodes, *text, nullptr)) {
-        failure =
-            NativeFailure{kKeyNotUnique, "Key is not unique in collection"};
+        failure = failure_of(wfc::mscomctl::Status::key_not_unique);
         return false;
     }
     // Place the node in the tree.
@@ -2575,7 +2573,7 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         }
         const long index = static_cast<long>(as_double(arguments[0].value));
         if (index < 0 || static_cast<std::size_t>(index) > item->sub.size()) {
-            failure = NativeFailure{kIndexOutOfBounds, "Index out of bounds"};
+            failure = failure_of(wfc::mscomctl::Status::index_out_of_bounds);
             return true;
         }
         result =
@@ -2630,7 +2628,7 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         }
         const long index = static_cast<long>(as_double(arguments[0].value));
         if (index < 0) {
-            failure = NativeFailure{kIndexOutOfBounds, "Index out of bounds"};
+            failure = failure_of(wfc::mscomctl::Status::index_out_of_bounds);
             return true;
         }
         Value text = value;
@@ -3151,10 +3149,10 @@ bool ComctlHooks::before_remove(Interpreter& in, ControlObject& control,
         auto& tabs = top_list(control, "tab");
         const long position = position_of(tabs, item);
         ItemPtr neighbor;
-        if (position > 1) {
-            neighbor = tabs[static_cast<std::size_t>(position) - 2U];
-        } else if (tabs.size() > 1U) {
-            neighbor = tabs[1];
+        const std::size_t next = wfc::mscomctl::neighbor_after_removal(
+            static_cast<std::size_t>(position) - 1U, tabs.size());
+        if (next < tabs.size()) {
+            neighbor = tabs[next];
         }
         item->p["selected"] = Value{false};
         if (neighbor != nullptr) {
@@ -3167,7 +3165,8 @@ bool ComctlHooks::before_remove(Interpreter& in, ControlObject& control,
 bool ComctlHooks::after_add(Interpreter& in, ControlObject& control,
                             const std::string& kind, const ItemPtr& item) {
     static_cast<void>(in);
-    if (kind == "tab" && top_list(control, "tab").size() == 1U) {
+    if (kind == "tab" &&
+        wfc::mscomctl::selects_first_added(top_list(control, "tab").size())) {
         item->p["selected"] = Value{true};  // the first tab is selected
     }
     if (kind == "listitem" && control_flag(control, "sorted")) {
@@ -3523,8 +3522,7 @@ bool ComctlSupport::user_input(Interpreter& in, InstanceData& form,
                                         number_property(self, "value")};
         const auto moved = model.move_to(std::atof(rest.c_str()));
         if (moved.changed) {
-            self.values["value"] =
-                Value{static_cast<Integer>(model.value())};
+            self.values["value"] = Value{static_cast<Integer>(model.value())};
             return raise_event(in, self, "Scroll", {}) &&
                    raise_event(in, self, "Click", {}) &&
                    raise_event(in, self, "Change", {});

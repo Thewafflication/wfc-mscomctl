@@ -86,6 +86,22 @@ int main() {
                error_number(Status::type_mismatch) == 13,
            "the error numbers");
 
+    expect(check_panel_count(15) == Status::ok &&
+               check_panel_count(16) == Status::panels_full,
+           "a status bar holds sixteen panels");
+    expect(check_image_insert(false, 0, 3) == Status::ok &&
+               check_image_insert(true, 3, 3) == Status::ok &&
+               check_image_insert(true, 1, 3) == Status::image_list_bound,
+           "a bound ImageList only grows at the end");
+    expect(selects_first_added(1) && !selects_first_added(2),
+           "the first tab added is selected");
+    expect(neighbor_after_removal(2, 4) == 1, "the previous tab is chosen");
+    expect(neighbor_after_removal(0, 3) == 1, "the second when the first goes");
+    expect(neighbor_after_removal(0, 1) == 1, "none when it was the only tab");
+    expect(error_number(Status::panels_full) == 35609 &&
+               error_number(Status::image_list_bound) == 35615,
+           "the error numbers of the limits");
+
     if (failures == 0) {
         std::puts("items: ok");
     }
