@@ -85,26 +85,45 @@ private:
     bool slider_;
 };
 
-// A control with one collection (TabStrip.Tabs, StatusBar.Panels,
-// Toolbar.Buttons): the property of that name answers the collection, which is
-// late bound (com_collections.hpp), and a TabStrip also keeps SelectedItem.
+// A control with collections (TabStrip.Tabs, StatusBar.Panels,
+// Toolbar.Buttons, ListView.ListItems and ColumnHeaders, ImageList.ListImages,
+// ImageCombo.ComboItems): the property of that name answers the collection,
+// which is late bound (com_collections.hpp), and a control whose items can be
+// selected (a TabStrip, an ImageCombo) also keeps SelectedItem.
 class CollectionBehaviour final : public wfc::com::Behaviour {
 public:
-    CollectionBehaviour(const char* property, const com::KindSpec& kind)
-        : property_(property),
-          state_(std::make_shared<com::ListState>(kind)),
-          collection_(new com::CollectionObject(state_)) {}
+    struct Entry {
+        const char* property;  // lower case
+        const com::KindSpec* kind;
+    };
 
-    ~CollectionBehaviour() override { collection_->Release(); }
+    explicit CollectionBehaviour(const std::vector<Entry>& entries) {
+        for (const Entry& entry : entries) {
+            Held held;
+            held.property = entry.property;
+            held.state = std::make_shared<com::ListState>(*entry.kind);
+            held.collection = new com::CollectionObject(held.state);
+            held_.push_back(std::move(held));
+        }
+    }
+
+    ~CollectionBehaviour() override {
+        for (Held& held : held_) {
+            held.collection->Release();
+        }
+    }
 
     HRESULT get(const std::string& member, const Index& index, VARIANT* result,
                 long* error) override {
-        if (member == property_) {
+        for (Held& held : held_) {
+            if (member != held.property) {
+                continue;
+            }
             if (index.count == 1U) {
                 // `Tabs(1)` is `Tabs.Item(1)`.
                 EXCEPINFO exception{};
-                const HRESULT outcome =
-                    collection_->item(index.arguments[0], result, &exception);
+                const HRESULT outcome = held.collection->item(
+                    index.arguments[0], result, &exception);
                 if (outcome == DISP_E_EXCEPTION) {
                     *error = exception.scode & 0xFFFF;
                     SysFreeString(exception.bstrSource);
@@ -114,17 +133,19 @@ public:
                 return outcome;
             }
             result->vt = VT_DISPATCH;
-            result->pdispVal = collection_;
-            collection_->AddRef();
+            result->pdispVal = held.collection;
+            held.collection->AddRef();
             return S_OK;
         }
-        if (member == "selecteditem" && state_->spec->selectable) {
-            if (state_->selected == nullptr) {
+        const auto selectable = selectable_state();
+        if (member == "selecteditem" && selectable != nullptr) {
+            if (selectable->selected == nullptr) {
                 com::detail::set_nothing(result);
                 return S_OK;
             }
             result->vt = VT_DISPATCH;
-            result->pdispVal = new com::ItemObject(state_, state_->selected);
+            result->pdispVal =
+                new com::ItemObject(selectable, selectable->selected);
             return S_OK;
         }
         return S_FALSE;
@@ -132,7 +153,8 @@ public:
 
     HRESULT put(const std::string& member, const Index&, const VARIANT& value,
                 long* error, std::vector<std::string>*) override {
-        if (member != "selecteditem" || !state_->spec->selectable) {
+        const auto state = selectable_state();
+        if (member != "selecteditem" || state == nullptr) {
             return S_FALSE;
         }
         VARIANT plain;
@@ -143,18 +165,18 @@ public:
         }
         HRESULT outcome = S_OK;
         if (plain.vt == VT_DISPATCH && plain.pdispVal == nullptr) {
-            state_->selected.reset();  // Nothing
+            state->selected.reset();  // Nothing
         } else {
             com::ItemObject* item = nullptr;
             if (plain.vt == VT_DISPATCH &&
                 plain.pdispVal->QueryInterface(
                     com::detail::kItemIid, reinterpret_cast<void**>(&item)) ==
                     S_OK) {
-                const auto& items = state_->items;
-                if (item->state() == state_ &&
+                const auto& items = state->items;
+                if (item->state() == state &&
                     std::find(items.begin(), items.end(), item->data()) !=
                         items.end()) {
-                    state_->selected = item->data();
+                    state->selected = item->data();
                 } else {
                     *error = 13;  // not an item of this control
                     outcome = E_FAIL;
@@ -170,24 +192,52 @@ public:
     }
 
 private:
-    std::string property_;
-    std::shared_ptr<com::ListState> state_;
-    com::CollectionObject* collection_;
+    struct Held {
+        std::string property;
+        std::shared_ptr<com::ListState> state;
+        com::CollectionObject* collection = nullptr;
+    };
+
+    [[nodiscard]] std::shared_ptr<com::ListState> selectable_state() const {
+        for (const Held& held : held_) {
+            if (held.state->spec->selectable) {
+                return held.state;
+            }
+        }
+        return nullptr;
+    }
+
+    std::vector<Held> held_;
 };
 
 // The behaviour of the class called `class_name`, none for most of them yet.
 inline std::unique_ptr<wfc::com::Behaviour> make_behaviour(
     const char* class_name) {
+    using Entry = CollectionBehaviour::Entry;
     if (_stricmp(class_name, "TabStrip") == 0) {
-        return std::make_unique<CollectionBehaviour>("tabs", com::tab_spec());
+        return std::make_unique<CollectionBehaviour>(
+            std::vector<Entry>{{"tabs", &com::tab_spec()}});
     }
     if (_stricmp(class_name, "StatusBar") == 0) {
-        return std::make_unique<CollectionBehaviour>("panels",
-                                                     com::panel_spec());
+        return std::make_unique<CollectionBehaviour>(
+            std::vector<Entry>{{"panels", &com::panel_spec()}});
     }
     if (_stricmp(class_name, "Toolbar") == 0) {
-        return std::make_unique<CollectionBehaviour>("buttons",
-                                                     com::button_spec());
+        return std::make_unique<CollectionBehaviour>(
+            std::vector<Entry>{{"buttons", &com::button_spec()}});
+    }
+    if (_stricmp(class_name, "ListView") == 0) {
+        return std::make_unique<CollectionBehaviour>(
+            std::vector<Entry>{{"listitems", &com::list_item_spec()},
+                               {"columnheaders", &com::column_spec()}});
+    }
+    if (_stricmp(class_name, "ImageList") == 0) {
+        return std::make_unique<CollectionBehaviour>(
+            std::vector<Entry>{{"listimages", &com::list_image_spec()}});
+    }
+    if (_stricmp(class_name, "ImageCombo") == 0) {
+        return std::make_unique<CollectionBehaviour>(
+            std::vector<Entry>{{"comboitems", &com::combo_item_spec()}});
     }
     if (_stricmp(class_name, "ProgressBar") == 0) {
         return std::make_unique<RangeBehaviour>(0.0, 100.0, false);

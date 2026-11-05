@@ -51,8 +51,10 @@ struct KindSpec {
     const char* name;  // "Tab", for the message of an error
     std::vector<const char*> add_parameters;
     std::vector<PropertySpec> properties;
-    bool selectable;  // the collection of a TabStrip
-    bool limited;     // a status bar holds at most sixteen panels
+    bool selectable;     // one item is the selected one (SelectedItem)
+    bool selects_first;  // the first item added is selected (a TabStrip)
+    bool limited;        // a status bar holds at most sixteen panels
+    bool needs_picture;  // Add without a picture is error 481
 };
 
 [[nodiscard]] inline const KindSpec& tab_spec() {
@@ -66,6 +68,8 @@ struct KindSpec {
                                 {"visible", 'b', "1"},
                                 {"highlighted", 'b', ""}},
                                true,
+                               true,
+                               false,
                                false};
     return spec;
 }
@@ -87,7 +91,77 @@ struct KindSpec {
                                 {"visible", 'b', "1"},
                                 {"enabled", 'b', "1"}},
                                false,
-                               true};
+                               false,
+                               true,
+                               false};
+    return spec;
+}
+
+[[nodiscard]] inline const KindSpec& column_spec() {
+    static const KindSpec spec{
+        "ColumnHeader",
+        {"index", "key", "text", "width", "alignment", "icon"},
+        {{"text", 's', ""},
+         {"key", 's', ""},
+         {"tag", 'v', ""},
+         {"width", 'f', "1440"},
+         {"alignment", 'i', ""},
+         {"icon", 'v', ""},
+         {"subitemindex", 'i', ""}},
+        false,
+        false,
+        false,
+        false};
+    return spec;
+}
+
+[[nodiscard]] inline const KindSpec& list_item_spec() {
+    static const KindSpec spec{"ListItem",
+                               {"index", "key", "text", "icon", "smallicon"},
+                               {{"text", 's', ""},
+                                {"key", 's', ""},
+                                {"tag", 'v', ""},
+                                {"icon", 'v', ""},
+                                {"smallicon", 'v', ""},
+                                {"selected", 'b', ""},
+                                {"checked", 'b', ""},
+                                {"ghosted", 'b', ""},
+                                {"bold", 'b', ""},
+                                {"forecolor", 'l', ""},
+                                {"tooltiptext", 's', ""}},
+                               false,
+                               false,
+                               false,
+                               false};
+    return spec;
+}
+
+[[nodiscard]] inline const KindSpec& list_image_spec() {
+    static const KindSpec spec{
+        "ListImage",
+        {"index", "key", "picture"},
+        {{"key", 's', ""}, {"tag", 'v', ""}, {"picture", 'v', ""}},
+        false,
+        false,
+        false,
+        true};
+    return spec;
+}
+
+[[nodiscard]] inline const KindSpec& combo_item_spec() {
+    static const KindSpec spec{
+        "ComboItem",
+        {"index", "key", "text", "image", "selimage", "indentation"},
+        {{"text", 's', ""},
+         {"key", 's', ""},
+         {"tag", 'v', ""},
+         {"image", 'v', ""},
+         {"selimage", 'v', ""},
+         {"indentation", 'i', ""}},
+        true,
+        false,
+        false,
+        false};
     return spec;
 }
 
@@ -106,6 +180,8 @@ struct KindSpec {
                                 {"enabled", 'b', "1"},
                                 {"mixedstate", 'b', ""},
                                 {"width", 'f', ""}},
+                               false,
+                               false,
                                false,
                                false};
     return spec;
@@ -242,6 +318,9 @@ inline HRESULT fail(EXCEPINFO* exception, const Status status) {
         case 'i':
             wanted = VT_I2;
             break;
+        case 'l':
+            wanted = VT_I4;
+            break;
         case 'f':
             wanted = VT_R4;
             break;
@@ -275,6 +354,10 @@ inline void initial_value(const PropertySpec& property, VARIANT* out) {
             out->iVal = property.initial[0] == '\0'
                             ? static_cast<SHORT>(0)
                             : static_cast<SHORT>(std::stol(property.initial));
+            break;
+        case 'l':
+            out->vt = VT_I4;
+            out->lVal = 0;
             break;
         case 'f':
             out->vt = VT_R4;
@@ -789,10 +872,17 @@ private:
                        })) {
             return detail::fail(exception, Status::key_not_unique);
         }
+        if (spec.needs_picture) {
+            const VARIANT& picture = created->properties["picture"];
+            if (picture.vt == VT_EMPTY || picture.vt == VT_NULL ||
+                (picture.vt == VT_DISPATCH && picture.pdispVal == nullptr)) {
+                return detail::fail(exception, 481, "Invalid picture");
+            }
+        }
         state_->items.insert(
             state_->items.begin() + static_cast<std::ptrdiff_t>(position),
             created);
-        if (spec.selectable && selects_first_added(state_->items.size())) {
+        if (spec.selects_first && selects_first_added(state_->items.size())) {
             state_->selected = created;
         }
         if (result == nullptr) {

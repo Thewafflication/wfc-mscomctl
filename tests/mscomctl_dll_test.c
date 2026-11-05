@@ -433,7 +433,103 @@ static void wfc_check_collections(const wchar_t* dll_path) {
         buttons->lpVtbl->Release(buttons);
         bar->lpVtbl->Release(bar);
     }
-    printf("TabStrip, StatusBar, Toolbar: the collections work through COM\n");
+    /* A ListView has ListItems and ColumnHeaders; an ImageList refuses an
+     * image without a picture (481); an ImageCombo selects what it is told. */
+    {
+        IDispatch* list =
+            wfc_create(dll_path, L"{2C1007A3-9018-519F-A902-87E3E466A897}",
+                       "no ListView in");
+        IDispatch* items = wfc_collection(list, L"ListItems", dll_path);
+        IDispatch* columns = wfc_collection(list, L"ColumnHeaders", dll_path);
+        IDispatch* item = NULL;
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"k1");
+        wfc_text(&args[2], L"One");
+        if (wfc_add(items, args, 3, &item) != 0 || item == NULL ||
+            !wfc_property_is(item, L"Text", L"One")) {
+            wfc_check_fail("ListItems.Add failed in", dll_path);
+        }
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"K1");
+        wfc_text(&args[2], L"Again");
+        if (wfc_add(items, args, 3, NULL) != 35602) {
+            wfc_check_fail("a duplicate ListItem key was not 35602 in",
+                           dll_path);
+        }
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"c1");
+        wfc_text(&args[2], L"Name");
+        wfc_number(&args[3], 2000);
+        if (wfc_add(columns, args, 4, NULL) != 0 ||
+            wfc_property_number(columns, L"Count") != 1 ||
+            wfc_property_number(items, L"Count") != 1) {
+            wfc_check_fail("ColumnHeaders and ListItems are not separate in",
+                           dll_path);
+        }
+        item->lpVtbl->Release(item);
+        columns->lpVtbl->Release(columns);
+        items->lpVtbl->Release(items);
+        list->lpVtbl->Release(list);
+    }
+    {
+        IDispatch* images =
+            wfc_create(dll_path, L"{9217D929-9C68-526C-928E-99E4E4D6B815}",
+                       "no ImageList in");
+        IDispatch* pictures = wfc_collection(images, L"ListImages", dll_path);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"none");
+        wfc_missing(&args[2]);
+        if (wfc_add(pictures, args, 3, NULL) != 481) {
+            wfc_check_fail("an image without a picture was not 481 in",
+                           dll_path);
+        }
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"red");
+        wfc_text(&args[2], L"picture");
+        if (wfc_add(pictures, args, 3, NULL) != 0 ||
+            wfc_property_number(pictures, L"Count") != 1) {
+            wfc_check_fail("ListImages.Add failed in", dll_path);
+        }
+        pictures->lpVtbl->Release(pictures);
+        images->lpVtbl->Release(images);
+    }
+    {
+        IDispatch* combo =
+            wfc_create(dll_path, L"{8E6ABCF0-6E14-5091-9BE5-B04948C170AE}",
+                       "no ImageCombo in");
+        IDispatch* entries = wfc_collection(combo, L"ComboItems", dll_path);
+        IDispatch* red = NULL;
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"red");
+        wfc_text(&args[2], L"Red");
+        if (wfc_add(entries, args, 3, &red) != 0 || red == NULL) {
+            wfc_check_fail("ComboItems.Add failed in", dll_path);
+        }
+        if (wfc_call(combo, L"SelectedItem", DISPATCH_PROPERTYGET, NULL, 0,
+                     &value, NULL) != S_OK ||
+            value.vt != VT_DISPATCH || value.pdispVal != NULL) {
+            wfc_check_fail("an ImageCombo selects nothing at first in",
+                           dll_path);
+        }
+        value.vt = VT_DISPATCH;
+        value.pdispVal = red;
+        if (wfc_call(combo, L"SelectedItem",
+                     DISPATCH_PROPERTYPUT | DISPATCH_PROPERTYPUTREF, &value, 1,
+                     NULL, NULL) != S_OK ||
+            wfc_call(combo, L"SelectedItem", DISPATCH_PROPERTYGET, NULL, 0,
+                     &value, NULL) != S_OK ||
+            value.vt != VT_DISPATCH || value.pdispVal == NULL ||
+            !wfc_property_is(value.pdispVal, L"Key", L"red")) {
+            wfc_check_fail("SelectedItem of an ImageCombo failed in", dll_path);
+        }
+        VariantClear(&value);
+        red->lpVtbl->Release(red);
+        entries->lpVtbl->Release(entries);
+        combo->lpVtbl->Release(combo);
+    }
+    printf(
+        "TabStrip, StatusBar, Toolbar, ListView, ImageList, ImageCombo: "
+        "the collections work through COM\n");
 }
 
 int main(int argc, char** argv) {

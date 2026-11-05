@@ -70,8 +70,12 @@ item is present, tested and passing in CI; an unchecked one is planned.
         `Panels`, `Buttons`: Add, Remove, Clear, Count, Item, For Each,
         SelectedItem), `src/com_collections.hpp` (ADR-0010 step 7, first
         part).
-  - [ ] COM collections of TreeView, ListView, ImageList and ImageCombo,
-        and the events of the collections (BeforeClick, Click).
+  - [x] COM collections of ListView (`ListItems`, `ColumnHeaders`),
+        ImageList (`ListImages`) and ImageCombo (`ComboItems`,
+        SelectedItem).
+  - [ ] COM `Nodes` of the TreeView, `ListSubItems`, the binding of an
+        ImageList, and the events of the collections (BeforeClick,
+        Click).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 
