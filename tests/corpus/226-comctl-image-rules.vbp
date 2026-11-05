@@ -1,0 +1,4 @@
+Type=Exe
+Form=226-comctl-image-rules.frm
+Startup="Form1"
+WfcUiScript=226-comctl-image-rules.ui

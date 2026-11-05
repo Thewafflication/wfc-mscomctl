@@ -546,7 +546,6 @@ std::optional<Value> comctl_default(const std::string& class_name,
 namespace {
 
 constexpr Integer kReadOnlyAfterUse = 35614;
-constexpr Integer kImageListBound = 35615;
 
 using ItemPtr = std::shared_ptr<CItem>;
 
@@ -1057,11 +1056,13 @@ bool ComctlCollection::get(Interpreter& in, const std::string& member,
         }
         return true;
     }
-    if ((member == "remove" || member == "clear") && ref.kind == "listimage" &&
-        control->values.contains("_bound")) {
-        failure = NativeFailure{
-            kImageListBound, "Images cannot be removed from a bound ImageList"};
-        return true;
+    if ((member == "remove" || member == "clear") && ref.kind == "listimage") {
+        if (const auto status = wfc::mscomctl::check_image_removal(
+                control->values.contains("_bound"));
+            status != wfc::mscomctl::Status::ok) {
+            failure = failure_of(status);
+            return true;
+        }
     }
     if (member == "remove") {
         if (arguments.size() != 1U) {
@@ -1249,7 +1250,7 @@ bool ComctlSupport::get(Interpreter& in, ControlObject& self,
         }
         if (member == "overlay") {
             // The composite of two images: the first stands for it here.
-            if (arguments.size() != 2U) {
+            if (!wfc::mscomctl::overlay_arguments_ok(arguments.size())) {
                 failure = NativeFailure{450, "Wrong number of arguments"};
                 return true;
             }
@@ -1387,7 +1388,7 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
         (member == "imagewidth" || member == "imageheight")) {
         ListRef ref;
         ref.kind = "listimage";
-        if (!list_of(self, ref).empty()) {
+        if (!wfc::mscomctl::image_size_settable(list_of(self, ref).size())) {
             failure =
                 NativeFailure{kReadOnlyAfterUse,
                               "Property is read-only after images are added"};
@@ -2917,14 +2918,9 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         return true;
     }
     if (member == "seltext") {
-        const std::string text = combo_text(self);
-        const std::size_t start =
-            std::min<std::size_t>(static_cast<std::size_t>(std::max(
-                                      0.0, number_property(self, "selstart"))),
-                                  text.size());
-        const std::size_t length = static_cast<std::size_t>(
-            std::max(0.0, number_property(self, "sellength")));
-        result = Value{text.substr(start, length)};
+        result = Value{wfc::mscomctl::selected_text(
+            combo_text(self), number_property(self, "selstart"),
+            number_property(self, "sellength"))};
         return true;
     }
     return false;
@@ -2962,12 +2958,14 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         self.values["text"] = converted;
         // The selection follows the text when an item has exactly that text.
         ItemPtr match;
+        std::vector<std::string> texts;
         for (const auto& item : top_list(self, "comboitem")) {
-            if (lower_text(text_of_prop(item, "text")) ==
-                lower_text(std::get<std::string>(converted))) {
-                match = item;
-                break;
-            }
+            texts.push_back(text_of_prop(item, "text"));
+        }
+        if (const auto found = wfc::mscomctl::item_with_text(
+                texts, std::get<std::string>(converted));
+            found.has_value()) {
+            match = top_list(self, "comboitem")[*found];
         }
         for (const auto& item : top_list(self, "comboitem")) {
             item->p["selected"] = Value{item == match};
@@ -2982,18 +2980,10 @@ void select_list_item(ControlObject& control, const ItemPtr& item,
         if (!coerce_property(in, converted, "String", failure)) {
             return true;
         }
-        const std::string text = combo_text(self);
-        const std::size_t start =
-            std::min<std::size_t>(static_cast<std::size_t>(std::max(
-                                      0.0, number_property(self, "selstart"))),
-                                  text.size());
-        const std::size_t length =
-            std::min<std::size_t>(static_cast<std::size_t>(std::max(
-                                      0.0, number_property(self, "sellength"))),
-                                  text.size() - start);
         const std::string inserted = std::get<std::string>(converted);
-        self.values["text"] = Value{text.substr(0, start) + inserted +
-                                    text.substr(start + length)};
+        self.values["text"] = Value{wfc::mscomctl::replace_selected(
+            combo_text(self), number_property(self, "selstart"),
+            number_property(self, "sellength"), inserted)};
         self.values["sellength"] = Value{static_cast<Integer>(inserted.size())};
         if (!raise_event(in, self, "Change", {})) {
             failure = FormSupport::reported();
@@ -3099,17 +3089,16 @@ bool ComctlHooks::after_add(Interpreter& in, ControlObject& control,
     }
     if (kind == "listimage" && control.class_key == "imagelist") {
         // The first image sets the size of the list (pixels at 96 dpi).
-        if (top_list(control, kind).size() == 1U) {
+        if (wfc::mscomctl::first_image_sets_size(
+                top_list(control, kind).size())) {
             if (const PictureObject* picture =
                     picture_of(item->p.at("picture"))) {
-                const auto pixels = [](const long himetric) {
-                    return static_cast<Int16>(std::lround(
-                        static_cast<double>(himetric) * 96.0 / 2540.0));
-                };
-                control.values["imagewidth"] =
-                    Value{pixels(picture->info.width)};
-                control.values["imageheight"] =
-                    Value{pixels(picture->info.height)};
+                control.values["imagewidth"] = Value{
+                    static_cast<Int16>(wfc::mscomctl::image_pixels(
+                        static_cast<long>(picture->info.width)))};
+                control.values["imageheight"] = Value{
+                    static_cast<Int16>(wfc::mscomctl::image_pixels(
+                        static_cast<long>(picture->info.height)))};
             }
         }
     }

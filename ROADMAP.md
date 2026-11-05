@@ -62,8 +62,11 @@ item is present, tested and passing in CI; an unchecked one is planned.
         SubItems, selection) and the label-edit rules: `list.hpp`,
         `labeledit.hpp` (ADR-0010 step 5), pinned by corpus 225 and tested
         by `list_test`.
-  - [ ] ImageList and ImageCombo, and the COM collections (ADR-0010
-        steps 6 and 7).
+  - [x] ImageList and ImageCombo rules (bound-list removal, list size,
+        Overlay, combo text matching and selection): `images.hpp`
+        (ADR-0010 step 6), pinned by corpus 226 and tested by
+        `images_test`.
+  - [ ] The COM collections (ADR-0010 step 7).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 

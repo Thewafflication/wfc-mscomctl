@@ -1,0 +1,78 @@
+add a err= 0 
+size           32            16 
+count          3 
+no picture err= 481 
+dup key err= 35602 
+index 0 err= 35600 
+index 9 err= 35600 
+index text err= 13 
+index end err= 0 
+count          4            e
+width after add err= 35614 
+width before add err= 0 
+size2          32            16 
+size2          32            16 
+overlay keys err= 0 
+Long
+overlay index err= 0 
+Long
+overlay one err= 450 
+overlay missing err= 35601 
+overlay zero err= 35600 
+overlay far err= 35600 
+Picture
+extract err= 0 
+ 3             3 
+key case err= 0 
+item 0 err= 35600 
+item empty key err= 35601 
+unbound remove err= 0 
+ 0 
+unbound clear err= 0 
+ 0 
+bind err= 0 
+bound remove err= 35615 
+bound clear err= 35615 
+bound front err= 35615 
+bound middle err= 35615 
+bound append err= 0 
+bound append no index err= 0 
+count          6 
+True
+True
+tab image index err= 0 
+tab image key err= 0 
+ 1 b
+tab image print err= 0 
+indent         3             0 
+set indentation err= 0 
+negative indentation err= 0 
+-1 
+image number err= 0 
+ 7            
+match         g
+match         b
+match         -             [Blu]
+match         -             []
+foreign item err= 13 
+-
+g             green
+nothing err= 0 
+-             [green]
+number err= 13 
+[]
+[ef]
+negative start err= 0 
+negative length err= 0 
+[]            -2            -2 
+ab-ef          2             1 
+ab-ef!         20            1 
+combo index 9 err= 35600 
+combo index 0 err= 35600 
+combo dup key err= 35602 
+combo insert first err= 0 
+first         first          5 
+combo remove 0 err= 35600 
+combo remove missing err= 35601 
+ 0            -
+combo clear err= 0 

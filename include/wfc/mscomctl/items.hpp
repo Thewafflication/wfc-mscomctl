@@ -31,6 +31,7 @@ enum class Status {
     key_not_unique,       // a Key another item has
     panels_full,          // a status bar with sixteen panels
     image_list_bound,     // an insert in an ImageList bound to a control
+    image_list_remove_bound,  // a removal from an ImageList bound to a control
 };
 
 // The Visual Basic error number of a failure (0 for ok).
@@ -49,6 +50,7 @@ enum class Status {
         case Status::panels_full:
             return 35609;
         case Status::image_list_bound:
+        case Status::image_list_remove_bound:
             return 35615;
     }
     return 0;
@@ -71,6 +73,8 @@ enum class Status {
             return "A status bar holds at most sixteen panels";
         case Status::image_list_bound:
             return "Images can only be appended to a bound ImageList";
+        case Status::image_list_remove_bound:
+            return "Images cannot be removed from a bound ImageList";
     }
     return "";
 }
