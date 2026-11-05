@@ -226,6 +226,10 @@ inline std::unique_ptr<wfc::com::Behaviour> make_behaviour(
         return std::make_unique<CollectionBehaviour>(
             std::vector<Entry>{{"buttons", &com::button_spec()}});
     }
+    if (_stricmp(class_name, "TreeView") == 0) {
+        return std::make_unique<CollectionBehaviour>(
+            std::vector<Entry>{{"nodes", &com::node_spec()}});
+    }
     if (_stricmp(class_name, "ListView") == 0) {
         return std::make_unique<CollectionBehaviour>(
             std::vector<Entry>{{"listitems", &com::list_item_spec()},

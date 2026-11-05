@@ -527,9 +527,86 @@ static void wfc_check_collections(const wchar_t* dll_path) {
         entries->lpVtbl->Release(entries);
         combo->lpVtbl->Release(combo);
     }
+    /* A TreeView's Nodes: the Relative and the Relationship place a node. */
+    {
+        IDispatch* tree =
+            wfc_create(dll_path, L"{B10A6F9B-431E-59EF-B149-F118AEA46D00}",
+                       "no TreeView in");
+        IDispatch* nodes = wfc_collection(tree, L"Nodes", dll_path);
+        IDispatch* root = NULL;
+        IDispatch* kid = NULL;
+        IDispatch* later = NULL;
+        IDispatch* found = NULL;
+        wfc_missing(&args[0]);
+        wfc_missing(&args[1]);
+        wfc_text(&args[2], L"r");
+        wfc_text(&args[3], L"Root");
+        if (wfc_add(nodes, args, 4, &root) != 0 || root == NULL) {
+            wfc_check_fail("Nodes.Add failed in", dll_path);
+        }
+        wfc_text(&args[0], L"r");
+        wfc_number(&args[1], 4); /* tvwChild */
+        wfc_text(&args[2], L"k");
+        wfc_text(&args[3], L"Kid");
+        if (wfc_add(nodes, args, 4, &kid) != 0 || kid == NULL) {
+            wfc_check_fail("a child node could not be added in", dll_path);
+        }
+        wfc_text(&args[0], L"k");
+        wfc_number(&args[1], 0); /* tvwFirst: before its siblings */
+        wfc_text(&args[2], L"k0");
+        wfc_text(&args[3], L"First kid");
+        if (wfc_add(nodes, args, 4, &later) != 0 || later == NULL) {
+            wfc_check_fail("a first sibling could not be added in", dll_path);
+        }
+        if (wfc_property_number(root, L"Children") != 2 ||
+            !wfc_property_is(kid, L"FullPath", L"Root\\Kid")) {
+            wfc_check_fail("the tree is not what was added in", dll_path);
+        }
+        if (wfc_call(root, L"Child", DISPATCH_PROPERTYGET, NULL, 0, &value,
+                     NULL) != S_OK ||
+            value.vt != VT_DISPATCH ||
+            !wfc_property_is(value.pdispVal, L"Key", L"k0")) {
+            wfc_check_fail("Child is not the first kid in", dll_path);
+        }
+        VariantClear(&value);
+        if (wfc_call(later, L"Next", DISPATCH_PROPERTYGET, NULL, 0, &value,
+                     NULL) != S_OK ||
+            value.vt != VT_DISPATCH ||
+            !wfc_property_is(value.pdispVal, L"Key", L"k")) {
+            wfc_check_fail("Next is not the second kid in", dll_path);
+        }
+        VariantClear(&value);
+        wfc_text(&args[0], L"r");
+        wfc_number(&args[1], 9);
+        wfc_text(&args[2], L"bad");
+        if (wfc_add(nodes, args, 3, NULL) != 35607) {
+            wfc_check_fail("relationship 9 was not error 35607 in", dll_path);
+        }
+        wfc_text(&args[0], L"nope");
+        wfc_number(&args[1], 4);
+        if (wfc_add(nodes, args, 2, NULL) != 35601) {
+            wfc_check_fail("an unknown relative was not error 35601 in",
+                           dll_path);
+        }
+        /* Removing a node removes what is below it. */
+        wfc_text(&selector, L"r");
+        wfc_call(nodes, L"Remove", DISPATCH_METHOD, &selector, 1, NULL, NULL);
+        if (wfc_property_number(nodes, L"Count") != 0) {
+            wfc_check_fail("Remove left the descendants in", dll_path);
+        }
+        found = wfc_item(nodes, &selector);
+        if (found != NULL) {
+            wfc_check_fail("a removed node was still found in", dll_path);
+        }
+        later->lpVtbl->Release(later);
+        kid->lpVtbl->Release(kid);
+        root->lpVtbl->Release(root);
+        nodes->lpVtbl->Release(nodes);
+        tree->lpVtbl->Release(tree);
+    }
     printf(
-        "TabStrip, StatusBar, Toolbar, ListView, ImageList, ImageCombo: "
-        "the collections work through COM\n");
+        "TabStrip, StatusBar, Toolbar, ListView, ImageList, ImageCombo, "
+        "TreeView: the collections work through COM\n");
 }
 
 int main(int argc, char** argv) {

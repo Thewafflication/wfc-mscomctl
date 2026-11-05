@@ -73,9 +73,10 @@ item is present, tested and passing in CI; an unchecked one is planned.
   - [x] COM collections of ListView (`ListItems`, `ColumnHeaders`),
         ImageList (`ListImages`) and ImageCombo (`ComboItems`,
         SelectedItem).
-  - [ ] COM `Nodes` of the TreeView, `ListSubItems`, the binding of an
-        ImageList, and the events of the collections (BeforeClick,
-        Click).
+  - [x] COM `Nodes` of the TreeView (Relative and Relationship, the
+        links of a node, FullPath, Remove with the descendants).
+  - [ ] `ListSubItems`, the binding of an ImageList, the sorting of
+        nodes, and the events of the collections (BeforeClick, Click).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 

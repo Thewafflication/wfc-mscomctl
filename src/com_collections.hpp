@@ -25,6 +25,7 @@
 #include <oleauto.h>
 
 #include <wfc/mscomctl/items.hpp>
+#include <wfc/mscomctl/tree.hpp>
 
 #include <algorithm>
 #include <atomic>
@@ -51,10 +52,11 @@ struct KindSpec {
     const char* name;  // "Tab", for the message of an error
     std::vector<const char*> add_parameters;
     std::vector<PropertySpec> properties;
-    bool selectable;     // one item is the selected one (SelectedItem)
-    bool selects_first;  // the first item added is selected (a TabStrip)
-    bool limited;        // a status bar holds at most sixteen panels
-    bool needs_picture;  // Add without a picture is error 481
+    bool selectable;            // one item is the selected one (SelectedItem)
+    bool selects_first;         // the first item added is selected (a TabStrip)
+    bool limited;               // a status bar holds at most sixteen panels
+    bool needs_picture;         // Add without a picture is error 481
+    bool hierarchical = false;  // Nodes: Add takes a Relative
 };
 
 [[nodiscard]] inline const KindSpec& tab_spec() {
@@ -165,6 +167,31 @@ struct KindSpec {
     return spec;
 }
 
+[[nodiscard]] inline const KindSpec& node_spec() {
+    static const KindSpec spec{
+        "Node",
+        {"relative", "relationship", "key", "text", "image", "selectedimage"},
+        {{"text", 's', ""},
+         {"key", 's', ""},
+         {"tag", 'v', ""},
+         {"image", 'v', ""},
+         {"selectedimage", 'v', ""},
+         {"expandedimage", 'v', ""},
+         {"expanded", 'b', ""},
+         {"checked", 'b', ""},
+         {"bold", 'b', ""},
+         {"forecolor", 'l', ""},
+         {"backcolor", 'l', ""},
+         {"sorted", 'b', ""},
+         {"visible", 'b', "1"}},
+        true,
+        false,
+        false,
+        false,
+        true};
+    return spec;
+}
+
 [[nodiscard]] inline const KindSpec& button_spec() {
     static const KindSpec spec{"Button",
                                {"index", "key", "caption", "style", "image"},
@@ -190,6 +217,8 @@ struct KindSpec {
 // One item: its properties by lower-case name.
 struct ItemData {
     std::map<std::string, VARIANT> properties;
+    ItemData* parent = nullptr;  // a node's parent (the items own the nodes)
+    std::vector<ItemData*> kids;
 
     ItemData() = default;
     ItemData(const ItemData&) = delete;
@@ -208,7 +237,41 @@ struct ListState {
 
     const KindSpec* spec;
     std::vector<std::shared_ptr<ItemData>> items;
+    std::vector<ItemData*> roots;  // the nodes without a parent, in order
     std::shared_ptr<ItemData> selected;
+
+    [[nodiscard]] std::shared_ptr<ItemData> share(const ItemData* data) const {
+        for (const auto& item : items) {
+            if (item.get() == data) {
+                return item;
+            }
+        }
+        return nullptr;
+    }
+
+    // Takes `node` and everything below it out of the collection.
+    void drop_subtree(ItemData* node) {
+        std::vector<ItemData*> doomed{node};
+        for (std::size_t i = 0; i < doomed.size(); ++i) {
+            doomed.insert(doomed.end(), doomed[i]->kids.begin(),
+                          doomed[i]->kids.end());
+        }
+        auto& siblings = node->parent != nullptr ? node->parent->kids : roots;
+        siblings.erase(std::remove(siblings.begin(), siblings.end(), node),
+                       siblings.end());
+        for (ItemData* gone : doomed) {
+            if (selected.get() == gone) {
+                selected.reset();
+            }
+            gone->parent = nullptr;
+            gone->kids.clear();
+            items.erase(std::remove_if(items.begin(), items.end(),
+                                       [&](const std::shared_ptr<ItemData>& i) {
+                                           return i.get() == gone;
+                                       }),
+                        items.end());
+        }
+    }
 };
 
 namespace detail {
@@ -478,6 +541,7 @@ public:
             }
             const std::string name = detail::lower(detail::narrow(names[i]));
             if (name == "index" || name == "selected" ||
+                (state_->spec->hierarchical && is_derived(name)) ||
                 detail::find_property(*state_->spec, name) != nullptr) {
                 ids_.push_back(name);
                 ids[i] = static_cast<DISPID>(ids_.size());
@@ -510,6 +574,9 @@ public:
             result->lVal = static_cast<LONG>(position() + 1U);
             return S_OK;
         }
+        if (state_->spec->hierarchical && is_derived(name)) {
+            return derived(name, result);
+        }
         if (name == "selected") {
             result->vt = VT_BOOL;
             result->boolVal =
@@ -523,6 +590,79 @@ public:
     }
 
 private:
+    [[nodiscard]] static bool is_derived(const std::string& name) {
+        return name == "parent" || name == "children" || name == "child" ||
+               name == "next" || name == "previous" || name == "firstsibling" ||
+               name == "lastsibling" || name == "root" || name == "fullpath";
+    }
+
+    // The links of a node, read from the tree (Nothing where there is none).
+    HRESULT derived(const std::string& name, VARIANT* result) {
+        const ItemData* node = data_.get();
+        const auto& siblings =
+            node->parent != nullptr ? node->parent->kids : state_->roots;
+        const auto where = std::find(siblings.begin(), siblings.end(), node);
+        const auto give = [&](const ItemData* other) {
+            const auto shared = other != nullptr ? state_->share(other)
+                                                 : std::shared_ptr<ItemData>();
+            if (shared == nullptr) {
+                detail::set_nothing(result);
+            } else {
+                result->vt = VT_DISPATCH;
+                result->pdispVal = new ItemObject(state_, shared);
+            }
+            return S_OK;
+        };
+        if (name == "parent") {
+            return give(node->parent);
+        }
+        if (name == "children") {
+            result->vt = VT_I2;
+            result->iVal = static_cast<SHORT>(node->kids.size());
+            return S_OK;
+        }
+        if (name == "child") {
+            return give(node->kids.empty() ? nullptr : node->kids.front());
+        }
+        if (name == "next") {
+            return give(where != siblings.end() && where + 1 != siblings.end()
+                            ? *(where + 1)
+                            : nullptr);
+        }
+        if (name == "previous") {
+            return give(where != siblings.end() && where != siblings.begin()
+                            ? *(where - 1)
+                            : nullptr);
+        }
+        if (name == "firstsibling") {
+            return give(siblings.empty() ? nullptr : siblings.front());
+        }
+        if (name == "lastsibling") {
+            return give(siblings.empty() ? nullptr : siblings.back());
+        }
+        if (name == "root") {
+            const ItemData* at = node;
+            while (at->parent != nullptr) {
+                at = at->parent;
+            }
+            return give(at);
+        }
+        std::vector<std::string> parts;  // fullpath
+        for (const ItemData* at = node; at != nullptr; at = at->parent) {
+            const auto text = at->properties.find("text");
+            parts.insert(
+                parts.begin(),
+                text != at->properties.end() && text->second.vt == VT_BSTR
+                    ? detail::narrow(text->second.bstrVal)
+                    : std::string{});
+        }
+        const std::string path = join_path(parts, "\\");
+        result->vt = VT_BSTR;
+        const std::wstring wide(path.begin(), path.end());
+        result->bstrVal = SysAllocString(wide.c_str());
+        return S_OK;
+    }
+
     [[nodiscard]] std::size_t position() const {
         for (std::size_t i = 0; i < state_->items.size(); ++i) {
             if (state_->items[i] == data_) {
@@ -534,7 +674,8 @@ private:
 
     HRESULT put(const std::string& name, const VARIANT& value,
                 EXCEPINFO* exception) {
-        if (name == "index") {
+        if (name == "index" ||
+            (state_->spec->hierarchical && is_derived(name))) {
             return detail::fail(exception, 383, "Property is read-only");
         }
         if (name == "selected") {
@@ -741,7 +882,12 @@ public:
                     return outcome;
                 }
             case kClear:
+                for (const auto& item : state_->items) {
+                    item->parent = nullptr;
+                    item->kids.clear();
+                }
                 state_->items.clear();
+                state_->roots.clear();
                 state_->selected.reset();
                 return S_OK;
             case kRemove:
@@ -787,11 +933,19 @@ private:
             return detail::fail(exception, lookup.status);
         }
         const auto removed = state_->items[lookup.position];
+        if (state_->spec->hierarchical) {
+            state_->drop_subtree(removed.get());  // and everything below it
+            return S_OK;
+        }
         if (state_->selected == removed) {
+            // A tab hands the selection to its neighbour; other items leave
+            // nothing selected.
             const std::size_t count = state_->items.size();
             const std::size_t next =
                 neighbor_after_removal(lookup.position, count);
-            state_->selected = next < count ? state_->items[next] : nullptr;
+            state_->selected = state_->spec->selects_first && next < count
+                                   ? state_->items[next]
+                                   : nullptr;
         }
         state_->items.erase(state_->items.begin() +
                             static_cast<std::ptrdiff_t>(lookup.position));
@@ -813,7 +967,15 @@ private:
             }
         }
         std::size_t position = state_->items.size();
-        if (const auto index = given.find("index"); index != given.end()) {
+        ItemData* parent = nullptr;
+        std::size_t at = 0;
+        if (spec.hierarchical) {
+            const HRESULT placed = place(given, &parent, &at, exception);
+            if (placed != S_OK) {
+                return placed;
+            }
+        } else if (const auto index = given.find("index");
+                   index != given.end()) {
             VARIANT plain;
             VARIANT number;
             VariantInit(&plain);
@@ -845,7 +1007,8 @@ private:
                                   &created->properties[property.name]);
         }
         for (const auto& [name, value] : given) {
-            if (name == "index") {
+            if (name == "index" || name == "relative" ||
+                name == "relationship") {
                 continue;
             }
             const PropertySpec* property = detail::find_property(spec, name);
@@ -879,9 +1042,17 @@ private:
                 return detail::fail(exception, 481, "Invalid picture");
             }
         }
-        state_->items.insert(
-            state_->items.begin() + static_cast<std::ptrdiff_t>(position),
-            created);
+        if (spec.hierarchical) {
+            created->parent = parent;
+            auto& siblings = parent != nullptr ? parent->kids : state_->roots;
+            siblings.insert(siblings.begin() + static_cast<std::ptrdiff_t>(at),
+                            created.get());
+            state_->items.push_back(created);
+        } else {
+            state_->items.insert(
+                state_->items.begin() + static_cast<std::ptrdiff_t>(position),
+                created);
+        }
         if (spec.selects_first && selects_first_added(state_->items.size())) {
             state_->selected = created;
         }
@@ -889,6 +1060,82 @@ private:
             return S_OK;
         }
         return wrap(created, result);
+    }
+
+    // Where Nodes.Add puts the node: the parent and the place among its kids
+    // (tree.hpp). Without a Relative the node is a new root; the
+    // Relationship defaults to tvwNext.
+    HRESULT place(const std::map<std::string, const VARIANT*>& given,
+                  ItemData** parent, std::size_t* at, EXCEPINFO* exception) {
+        const auto relative_value = given.find("relative");
+        if (relative_value == given.end()) {
+            *parent = nullptr;
+            *at = state_->roots.size();
+            return S_OK;
+        }
+        ItemData* relative = nullptr;
+        VARIANT plain;
+        VariantInit(&plain);
+        if (VariantCopyInd(&plain, relative_value->second) != S_OK) {
+            return detail::fail(exception, Status::type_mismatch);
+        }
+        if (plain.vt == VT_DISPATCH) {
+            ItemObject* object = nullptr;
+            if (plain.pdispVal != nullptr &&
+                plain.pdispVal->QueryInterface(
+                    detail::kItemIid, reinterpret_cast<void**>(&object)) ==
+                    S_OK) {
+                if (object->state() == state_ &&
+                    state_->share(object->data().get()) != nullptr) {
+                    relative = object->data().get();
+                }
+                object->Release();
+            }
+            VariantClear(&plain);
+            if (relative == nullptr) {
+                return detail::fail(exception, Status::element_not_found);
+            }
+        } else {
+            VariantClear(&plain);
+            const auto lookup =
+                find_in(detail::selector_of(*relative_value->second));
+            if (lookup.status != Status::ok) {
+                return detail::fail(exception, lookup.status);
+            }
+            relative = state_->items[lookup.position].get();
+        }
+        long relationship = kTreeNext;
+        if (const auto way = given.find("relationship"); way != given.end()) {
+            VARIANT number;
+            VARIANT value;
+            VariantInit(&value);
+            VariantInit(&number);
+            const bool numeric =
+                VariantCopyInd(&value, way->second) == S_OK &&
+                detail::is_number(value) &&
+                VariantChangeType(&number, &value, 0, VT_R8) == S_OK;
+            VariantClear(&value);
+            if (!numeric) {
+                return detail::fail(exception, Status::type_mismatch);
+            }
+            const auto checked = check_relationship(number.dblVal);
+            if (!checked.valid) {
+                return detail::fail(exception, kInvalidRelationship,
+                                    "Invalid relationship");
+            }
+            relationship = checked.relationship;
+        }
+        const auto& siblings = relative->parent != nullptr
+                                   ? relative->parent->kids
+                                   : state_->roots;
+        const auto where =
+            std::find(siblings.begin(), siblings.end(), relative);
+        const auto placement = place_node(
+            true, relationship, 0, relative->kids.size(), siblings.size(),
+            static_cast<std::size_t>(where - siblings.begin()));
+        *parent = placement.as_child ? relative : relative->parent;
+        *at = placement.at;
+        return S_OK;
     }
 
     HRESULT enumerate(VARIANT* result) {
