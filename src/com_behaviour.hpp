@@ -7,6 +7,7 @@
 #define WFC_MSCOMCTL_COM_BEHAVIOUR_HPP
 
 #include "com_collections.hpp"
+#include "com_input.hpp"
 
 #include <wfc/mscomctl/images.hpp>
 #include <wfc/mscomctl/range.hpp>
@@ -119,7 +120,8 @@ public:
         }
     }
 
-    void attach(std::function<bool(const std::string&, bool)> raiser) override {
+    void attach(std::function<void(const std::string&, std::vector<VARIANT>&)>
+                    raiser) override {
         for (Held& held : held_) {
             held.state->raise = raiser;
         }
@@ -190,6 +192,7 @@ public:
 
     HRESULT put(const std::string& member, const Index&, const VARIANT& value,
                 long* error, std::vector<std::string>* events) override {
+        record_flag(member, value);
         if (member == "imagelist" || member == "icons" ||
             member == "smallicons" || member == "hotimagelist" ||
             member == "disabledimagelist" || member == "columnheadericons") {
@@ -272,12 +275,73 @@ public:
         return outcome;
     }
 
+    // The input of the user (com_input.hpp).
+    HRESULT input(const std::string& action,
+                  const std::string& argument) override {
+        if (const auto tabs = state_of_kind("Tab")) {
+            com::input::tab_input(tabs, action, argument);
+        } else if (const auto panels = state_of_kind("Panel")) {
+            com::input::panel_input(panels, action, argument);
+        } else if (const auto buttons = state_of_kind("Button")) {
+            com::input::button_input(buttons, action, argument);
+        } else if (const auto tree = state_of_kind("Node")) {
+            com::input::tree_input(tree, action, argument);
+        } else if (const auto list = state_of_kind("ListItem")) {
+            com::input::list_input(list, state_of_kind("ColumnHeader"), action,
+                                   argument);
+        } else if (const auto combo = state_of_kind("ComboItem")) {
+            if (action == "type") {
+                // The user types: ignored while the control is locked.
+                if (!combo->locked) {
+                    std::vector<std::string> events;
+                    VARIANT text;
+                    VariantInit(&text);
+                    const std::wstring wide(argument.begin(), argument.end());
+                    text.vt = VT_BSTR;
+                    text.bstrVal = SysAllocString(wide.c_str());
+                    static_cast<void>(put_combo(*combo, "text", text, &events));
+                    VariantClear(&text);
+                    for (const std::string& name : events) {
+                        combo->emit(name.c_str());
+                    }
+                }
+            } else {
+                com::input::combo_input(combo, action, argument);
+            }
+        } else {
+            return S_FALSE;
+        }
+        return S_OK;
+    }
+
 private:
     struct Held {
         std::string property;
         std::shared_ptr<com::ListState> state;
         com::CollectionObject* collection = nullptr;
     };
+
+    // The properties of the control that its input depends on.
+    void record_flag(const std::string& member, const VARIANT& value) {
+        long number = 0;
+        const bool numeric = com::detail::to_long(value, &number);
+        for (Held& held : held_) {
+            com::ListState& state = *held.state;
+            if (member == "labeledit" && numeric) {
+                state.label_edit = static_cast<double>(number);
+            } else if (member == "multiselect") {
+                state.multi_select = numeric && number != 0;
+            } else if (member == "singlesel") {
+                state.single_sel = numeric && number != 0;
+            } else if (member == "checkboxes") {
+                state.checkboxes = numeric && number != 0;
+            } else if (member == "allowcustomize") {
+                state.allow_customize = numeric && number != 0;
+            } else if (member == "locked") {
+                state.locked = numeric && number != 0;
+            }
+        }
+    }
 
     [[nodiscard]] std::shared_ptr<com::ListState> selectable_state() const {
         for (const Held& held : held_) {

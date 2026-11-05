@@ -305,11 +305,21 @@ struct ListState {
     std::vector<ItemData*> roots;  // the nodes without a parent, in order
     std::shared_ptr<ItemData> selected;
 
-    // Set by Behaviour::attach: raises an event of the control; true when a
-    // cancellable one was cancelled.
-    std::function<bool(const std::string&, bool)> raise;
-    bool bound = false;   // an ImageList drawn by a control
-    bool sorted = false;  // the Sorted property of a TreeView
+    // Set by Behaviour::attach: raises an event of the control with the
+    // arguments given (in the order of the call).
+    std::function<void(const std::string&, std::vector<VARIANT>&)> raise;
+
+    // The properties of the control that its input depends on (the control
+    // stores them; the Behaviour hears them as they are set).
+    double label_edit = 0.0;  // 0 automatic, 1 manual
+    bool multi_select = false;
+    bool single_sel = false;
+    bool checkboxes = false;
+    bool allow_customize = true;
+    bool locked = false;
+    bool editing = false;  // a label edit has started
+    bool bound = false;    // an ImageList drawn by a control
+    bool sorted = false;   // the Sorted property of a TreeView
     std::string path_separator = "\\";
     short image_width = 0;  // an ImageList: set by its first image
     short image_height = 0;
@@ -317,8 +327,29 @@ struct ListState {
     double sel_start = 0.0;
     double sel_length = 0.0;
 
+    // Raises an event without arguments, or (cancellable) with Cancel; true
+    // when a sink set Cancel.
     bool emit(const char* name, const bool cancellable = false) const {
-        return raise ? raise(name, cancellable) : false;
+        if (!raise) {
+            return false;
+        }
+        SHORT cancel = 0;
+        std::vector<VARIANT> arguments;
+        if (cancellable) {
+            VARIANT argument;
+            VariantInit(&argument);
+            argument.vt = VT_I2 | VT_BYREF;
+            argument.piVal = &cancel;
+            arguments.push_back(argument);
+        }
+        raise(name, arguments);
+        return cancel != 0;
+    }
+
+    void emit_with(const char* name, std::vector<VARIANT>& arguments) const {
+        if (raise) {
+            raise(name, arguments);
+        }
     }
 
     [[nodiscard]] std::shared_ptr<ItemData> share(const ItemData* data) const {
@@ -774,7 +805,7 @@ public:
         if (state_->spec->hierarchical && is_derived(name)) {
             return derived(name, result);
         }
-        if (name == "selected") {
+        if (name == "selected" && state_->spec->selectable) {
             result->vt = VT_BOOL;
             result->boolVal =
                 state_->selected == data_ ? VARIANT_TRUE : VARIANT_FALSE;
@@ -920,6 +951,25 @@ private:
         if (name == "index" ||
             (state_->spec->hierarchical && is_derived(name))) {
             return detail::fail(exception, 383, "Property is read-only");
+        }
+        if (name == "selected" && !state_->spec->selectable) {
+            // A list item: Selected = True replaces the selection unless the
+            // control is MultiSelect (list.hpp).
+            VARIANT flag;
+            if (!detail::coerce('b', value, &flag)) {
+                return detail::fail(exception, Status::type_mismatch);
+            }
+            if (flag.boolVal != VARIANT_FALSE &&
+                selected_replaces(state_->multi_select)) {
+                for (const auto& other : state_->items) {
+                    VariantClear(&other->properties["selected"]);
+                    other->properties["selected"].vt = VT_BOOL;
+                    other->properties["selected"].boolVal = VARIANT_FALSE;
+                }
+            }
+            VariantClear(&data_->properties["selected"]);
+            data_->properties["selected"] = flag;
+            return S_OK;
         }
         if (name == "selected") {
             VARIANT flag;
@@ -1441,6 +1491,22 @@ private:
 
     std::shared_ptr<ListState> state_;
 };
+
+// An item as the argument of an event (Nothing for none); VariantClear
+// releases it.
+[[nodiscard]] inline VARIANT item_variant(
+    const std::shared_ptr<ListState>& state,
+    const std::shared_ptr<ItemData>& item) {
+    VARIANT value;
+    VariantInit(&value);
+    if (item == nullptr) {
+        detail::set_nothing(&value);
+    } else {
+        value.vt = VT_DISPATCH;
+        value.pdispVal = new ItemObject(state, item);
+    }
+    return value;
+}
 
 inline HRESULT ItemObject::sub_collection(VARIANT* result) {
     auto* collection = new (std::nothrow) CollectionObject(data_->sub);

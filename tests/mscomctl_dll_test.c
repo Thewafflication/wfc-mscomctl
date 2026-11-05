@@ -617,6 +617,7 @@ static void wfc_check_collections(const wchar_t* dll_path) {
 static long wfc_sink_events[16];
 static int wfc_sink_count = 0;
 static int wfc_sink_cancel = 0;
+static int wfc_sink_rewrite = 0;
 
 static HRESULT __stdcall wfc_sink_qi(IDispatch* self, REFIID iid,
                                      void** object) {
@@ -673,6 +674,11 @@ static HRESULT __stdcall wfc_sink_invoke(IDispatch* self, DISPID id, REFIID iid,
     (void)arg;
     if (wfc_sink_count < 16) {
         wfc_sink_events[wfc_sink_count++] = (long)id;
+    }
+    if (params->cArgs == 2 && params->rgvarg[0].vt == (VT_BSTR | VT_BYREF) &&
+        wfc_sink_rewrite) {
+        SysFreeString(*params->rgvarg[0].pbstrVal);
+        *params->rgvarg[0].pbstrVal = SysAllocString(L"Fixed");
     }
     if (wfc_sink_cancel && params->cArgs == 1 &&
         params->rgvarg[0].vt == (VT_I2 | VT_BYREF)) {
@@ -1000,6 +1006,261 @@ static void wfc_check_more(const wchar_t* dll_path) {
         "through COM\n");
 }
 
+/* ---- The input of the user: WfcInput(Action, Argument) makes the control do
+ * what a click or a key would and raise the events of it (com_input.hpp). */
+
+static void wfc_input(IDispatch* control, const wchar_t* action,
+                      const wchar_t* argument) {
+    VARIANT args[2];
+    wfc_text(&args[0], action);
+    wfc_text(&args[1], argument);
+    if (wfc_call(control, L"WfcInput", DISPATCH_METHOD, args, 2, NULL, NULL) !=
+        S_OK) {
+        printf("WfcInput failed\n");
+        exit(1);
+    }
+}
+
+static void wfc_flag(IDispatch* control, const wchar_t* name, int on) {
+    VARIANT value;
+    value.vt = VT_BOOL;
+    value.boolVal = on ? VARIANT_TRUE : VARIANT_FALSE;
+    VariantInit(&value);
+    value.vt = VT_BOOL;
+    value.boolVal = on ? VARIANT_TRUE : VARIANT_FALSE;
+    wfc_call(control, name, DISPATCH_PROPERTYPUT, &value, 1, NULL, NULL);
+}
+
+static IDispatch* wfc_add_node(IDispatch* nodes, const wchar_t* relative,
+                               long relationship, const wchar_t* key,
+                               const wchar_t* text) {
+    VARIANT args[4];
+    IDispatch* made = NULL;
+    if (relative == NULL) {
+        wfc_missing(&args[0]);
+        wfc_missing(&args[1]);
+    } else {
+        wfc_text(&args[0], relative);
+        wfc_number(&args[1], relationship);
+    }
+    wfc_text(&args[2], key);
+    wfc_text(&args[3], text);
+    wfc_add(nodes, args, 4, &made);
+    return made;
+}
+
+static void wfc_check_input(const wchar_t* dll_path) {
+    VARIANT args[5];
+    VARIANT value;
+
+    /* TreeView: click, expand, check, label edit. */
+    {
+        IDispatch* tree =
+            wfc_create(dll_path, L"{B10A6F9B-431E-59EF-B149-F118AEA46D00}",
+                       "no TreeView in");
+        IDispatch* nodes = wfc_collection(tree, L"Nodes", dll_path);
+        IDispatch* root = wfc_add_node(nodes, NULL, 0, L"r", L"Root");
+        IDispatch* kid = wfc_add_node(nodes, L"r", 4, L"k", L"Kid");
+        wfc_listen(tree, dll_path);
+        wfc_flag(tree, L"Checkboxes", 1);
+        wfc_input(tree, L"click", L"r");
+        wfc_expect_events(dll_path, "a node click is NodeClick and Click in", 2,
+                          5, -600);
+        wfc_input(tree, L"expand", L"r");
+        wfc_expect_events(dll_path, "expand did not raise Expand in", 1, 4, 0);
+        wfc_input(tree, L"expand", L"r");
+        wfc_expect_events(dll_path, "expanding twice raised Expand again in", 0,
+                          0, 0);
+        wfc_input(tree, L"check", L"k");
+        wfc_expect_events(dll_path, "check did not raise NodeCheck in", 1, 6,
+                          0);
+        if (wfc_call(kid, L"Checked", DISPATCH_PROPERTYGET, NULL, 0, &value,
+                     NULL) != S_OK ||
+            value.boolVal == VARIANT_FALSE) {
+            wfc_check_fail("check did not check the node in", dll_path);
+        }
+        wfc_input(tree, L"click", L"r");
+        wfc_expect_events(dll_path, "a second click did not start the edit in",
+                          3, 5, -600);
+        wfc_sink_count = 0;
+        wfc_input(tree, L"click", L"r");
+        wfc_sink_count = 0;
+        wfc_input(tree, L"edit", L"Renamed");
+        wfc_expect_events(dll_path,
+                          "the end of the edit did not raise AfterLabelEdit in",
+                          1, 2, 0);
+        if (!wfc_property_is(root, L"Text", L"Renamed")) {
+            wfc_check_fail("the edited text was not kept in", dll_path);
+        }
+        wfc_input(tree, L"click", L"r");
+        wfc_sink_count = 0;
+        wfc_input(tree, L"canceledit", L"");
+        wfc_sink_count = 0;
+        if (!wfc_property_is(root, L"Text", L"Renamed")) {
+            wfc_check_fail("a cancelled edit changed the text in", dll_path);
+        }
+        kid->lpVtbl->Release(kid);
+        root->lpVtbl->Release(root);
+        nodes->lpVtbl->Release(nodes);
+        tree->lpVtbl->Release(tree);
+    }
+
+    /* ListView: click, double click, check box, column. */
+    {
+        IDispatch* list =
+            wfc_create(dll_path, L"{2C1007A3-9018-519F-A902-87E3E466A897}",
+                       "no ListView in");
+        IDispatch* items = wfc_collection(list, L"ListItems", dll_path);
+        IDispatch* columns = wfc_collection(list, L"ColumnHeaders", dll_path);
+        IDispatch* first = NULL;
+        IDispatch* second = NULL;
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"a");
+        wfc_text(&args[2], L"A");
+        wfc_add(items, args, 3, &first);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"b");
+        wfc_text(&args[2], L"B");
+        wfc_add(items, args, 3, &second);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"c");
+        wfc_text(&args[2], L"Col");
+        wfc_add(columns, args, 3, NULL);
+        wfc_listen(list, dll_path);
+        wfc_input(list, L"click", L"a");
+        wfc_expect_events(dll_path, "an item click is ItemClick and Click in",
+                          2, 4, -600);
+        wfc_input(list, L"dblclick", L"b");
+        wfc_sink_count = 0;
+        if (wfc_call(first, L"Selected", DISPATCH_PROPERTYGET, NULL, 0, &value,
+                     NULL) != S_OK ||
+            value.boolVal != VARIANT_FALSE ||
+            wfc_call(second, L"Selected", DISPATCH_PROPERTYGET, NULL, 0, &value,
+                     NULL) != S_OK ||
+            value.boolVal == VARIANT_FALSE) {
+            wfc_check_fail("clicking b did not select only b in", dll_path);
+        }
+        wfc_input(list, L"check", L"a");
+        wfc_expect_events(
+            dll_path, "check without CheckBoxes raised ItemCheck in", 0, 0, 0);
+        wfc_flag(list, L"Checkboxes", 1);
+        wfc_input(list, L"check", L"a");
+        wfc_expect_events(dll_path, "check did not raise ItemCheck in", 1, 5,
+                          0);
+        wfc_input(list, L"columnclick", L"c");
+        wfc_expect_events(dll_path, "columnclick did not raise ColumnClick in",
+                          1, 3, 0);
+        first->lpVtbl->Release(first);
+        second->lpVtbl->Release(second);
+        columns->lpVtbl->Release(columns);
+        items->lpVtbl->Release(items);
+        list->lpVtbl->Release(list);
+    }
+
+    /* Toolbar buttons, status bar panels, the combo and the tabs. */
+    {
+        IDispatch* bar =
+            wfc_create(dll_path, L"{EEBB0901-096F-52EB-A609-86815871912F}",
+                       "no Toolbar in");
+        IDispatch* buttons = wfc_collection(bar, L"Buttons", dll_path);
+        IDispatch* check = NULL;
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"c");
+        wfc_text(&args[2], L"Check");
+        wfc_number(&args[3], 1); /* tbrCheck */
+        wfc_add(buttons, args, 4, &check);
+        wfc_listen(bar, dll_path);
+        wfc_input(bar, L"button", L"c");
+        wfc_expect_events(dll_path, "a button press is ButtonClick in", 1, 1,
+                          0);
+        if (wfc_property_number(check, L"Value") != 1) {
+            wfc_check_fail("a check button did not toggle in", dll_path);
+        }
+        wfc_input(bar, L"button", L"c");
+        wfc_sink_count = 0;
+        if (wfc_property_number(check, L"Value") != 0) {
+            wfc_check_fail("a check button did not toggle back in", dll_path);
+        }
+        wfc_input(bar, L"dropdown", L"c");
+        wfc_expect_events(dll_path, "a plain button dropped down in", 0, 0, 0);
+        wfc_input(bar, L"dblclick", L"");
+        wfc_expect_events(dll_path, "a double click is DblClick and Change in",
+                          2, -601, 2);
+        check->lpVtbl->Release(check);
+        buttons->lpVtbl->Release(buttons);
+        bar->lpVtbl->Release(bar);
+    }
+    {
+        IDispatch* bar =
+            wfc_create(dll_path, L"{11033AF3-05F7-58AE-93B1-596BB33150BB}",
+                       "no StatusBar in");
+        IDispatch* panels = wfc_collection(bar, L"Panels", dll_path);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"p");
+        wfc_text(&args[2], L"Panel");
+        wfc_add(panels, args, 3, NULL);
+        wfc_listen(bar, dll_path);
+        wfc_input(bar, L"panel", L"p");
+        wfc_expect_events(dll_path, "a panel click is PanelClick in", 1, 1, 0);
+        wfc_input(bar, L"paneldbl", L"1");
+        wfc_expect_events(dll_path, "a panel double click is two events in", 2,
+                          1, 2);
+        panels->lpVtbl->Release(panels);
+        bar->lpVtbl->Release(bar);
+    }
+    {
+        IDispatch* combo =
+            wfc_create(dll_path, L"{8E6ABCF0-6E14-5091-9BE5-B04948C170AE}",
+                       "no ImageCombo in");
+        IDispatch* entries = wfc_collection(combo, L"ComboItems", dll_path);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"red");
+        wfc_text(&args[2], L"Red");
+        wfc_add(entries, args, 3, NULL);
+        wfc_listen(combo, dll_path);
+        wfc_input(combo, L"dropdown", L"");
+        wfc_expect_events(dll_path, "dropdown did not raise Dropdown in", 1, 2,
+                          0);
+        wfc_input(combo, L"select", L"red");
+        wfc_expect_events(dll_path, "select did not raise Click and Change in",
+                          2, -600, 1);
+        if (!wfc_property_is(combo, L"Text", L"Red")) {
+            wfc_check_fail("select did not set Text in", dll_path);
+        }
+        wfc_flag(combo, L"Locked", 1);
+        wfc_input(combo, L"type", L"typed");
+        wfc_expect_events(dll_path, "typing in a locked combo raised events in",
+                          0, 0, 0);
+        wfc_flag(combo, L"Locked", 0);
+        wfc_input(combo, L"type", L"typed");
+        wfc_expect_events(dll_path, "typing did not raise Change in", 1, 1, 0);
+        entries->lpVtbl->Release(entries);
+        combo->lpVtbl->Release(combo);
+    }
+    {
+        IDispatch* strip =
+            wfc_create(dll_path, L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}",
+                       "no TabStrip in");
+        IDispatch* tabs = wfc_collection(strip, L"Tabs", dll_path);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"a");
+        wfc_text(&args[2], L"A");
+        wfc_add(tabs, args, 3, NULL);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"b");
+        wfc_text(&args[2], L"B");
+        wfc_add(tabs, args, 3, NULL);
+        wfc_listen(strip, dll_path);
+        wfc_input(strip, L"select", L"b");
+        wfc_expect_events(dll_path,
+                          "select did not raise BeforeClick and Click in", 2, 1,
+                          -600);
+        tabs->lpVtbl->Release(tabs);
+        strip->lpVtbl->Release(strip);
+    }
+    printf("the input of the user works through WfcInput\n");
+}
+
 int main(int argc, char** argv) {
     int checked = wfc_check_dll(argc, argv, L"mscomctl", kClasses,
                                 sizeof(kClasses) / sizeof(kClasses[0]));
@@ -1013,6 +1274,7 @@ int main(int argc, char** argv) {
                     "ProgressBar");
     wfc_check_collections(wfc_check_widen(argv[1]));
     wfc_check_more(wfc_check_widen(argv[1]));
+    wfc_check_input(wfc_check_widen(argv[1]));
     return wfc_check_create(wfc_check_widen(argv[1]),
                             L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}",
                             L"Enabled", L"Refresh");

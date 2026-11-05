@@ -79,8 +79,11 @@ item is present, tested and passing in CI; an unchecked one is planned.
         Click, Change), `ListSubItems`, `SubItems`, `ButtonMenus`, the
         binding of an ImageList and its size, node sorting,
         `PathSeparator` and the Text of an ImageCombo through COM.
-  - [ ] The events that need a mouse or a window (NodeClick, ItemClick,
-        label edits) for a COM client.
+  - [x] The input of the user for a COM client (`WfcInput`: clicks,
+        selection, check boxes, expand and collapse, keys, label edits,
+        buttons, panels) with its events, `src/com_input.hpp`.
+  - [ ] Key and mouse events (KeyDown, MouseDown ...) of a COM control,
+        which need a window.
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 
