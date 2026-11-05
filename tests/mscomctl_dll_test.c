@@ -130,6 +130,312 @@ static void wfc_check_range(const wchar_t* dll_path, const wchar_t* clsid_text,
     printf("%s: the range is kept through COM\n", what);
 }
 
+/* The collections of a TabStrip, a StatusBar and a Toolbar made through COM
+ * (ADR-0010 step 7): Add, Count, Item, Remove, the errors of the library
+ * (35600 index out of bounds, 35602 key not unique, 35609 too many panels),
+ * the first tab selected, SelectedItem, and For Each. */
+static HRESULT wfc_call(IDispatch* object, const wchar_t* name, WORD flags,
+                        VARIANT* arguments, UINT count, VARIANT* result,
+                        EXCEPINFO* exception) {
+    /* `arguments` are in the order of the call; COM wants them reversed. */
+    OLECHAR* names[1];
+    DISPID id = 0;
+    DISPID named = DISPID_PROPERTYPUT;
+    VARIANT reversed[8];
+    DISPPARAMS params;
+    UINT i;
+    HRESULT found;
+    names[0] = (OLECHAR*)name;
+    for (i = 0; i < count; ++i) {
+        reversed[i] = arguments[count - 1U - i];
+    }
+    params.rgvarg = reversed;
+    params.cArgs = count;
+    params.rgdispidNamedArgs = (flags & DISPATCH_PROPERTYPUT) ? &named : NULL;
+    params.cNamedArgs = (flags & DISPATCH_PROPERTYPUT) ? 1U : 0U;
+    found = object->lpVtbl->GetIDsOfNames(object, &IID_NULL, names, 1, 0, &id);
+    if (found != S_OK) {
+        return found;
+    }
+    if (result != NULL) {
+        VariantInit(result);
+    }
+    return object->lpVtbl->Invoke(object, id, &IID_NULL, 0, flags, &params,
+                                  result, exception, NULL);
+}
+
+static void wfc_missing(VARIANT* value) {
+    VariantInit(value);
+    value->vt = VT_ERROR;
+    value->scode = DISP_E_PARAMNOTFOUND;
+}
+
+static void wfc_text(VARIANT* value, const wchar_t* text) {
+    VariantInit(value);
+    value->vt = VT_BSTR;
+    value->bstrVal = SysAllocString(text);
+}
+
+static void wfc_number(VARIANT* value, long number) {
+    VariantInit(value);
+    value->vt = VT_I4;
+    value->lVal = number;
+}
+
+/* Item(key) of `collection`, or NULL. */
+static IDispatch* wfc_item(IDispatch* collection, VARIANT* selector) {
+    VARIANT item;
+    if (wfc_call(collection, L"Item", DISPATCH_METHOD | DISPATCH_PROPERTYGET,
+                 selector, 1, &item, NULL) != S_OK ||
+        item.vt != VT_DISPATCH) {
+        return NULL;
+    }
+    return item.pdispVal;
+}
+
+static long wfc_property_number(IDispatch* object, const wchar_t* name) {
+    VARIANT value;
+    VARIANT number;
+    VariantInit(&number);
+    if (wfc_call(object, name, DISPATCH_PROPERTYGET, NULL, 0, &value, NULL) !=
+            S_OK ||
+        VariantChangeType(&number, &value, 0, VT_I4) != S_OK) {
+        return -1;
+    }
+    return number.lVal;
+}
+
+static int wfc_property_is(IDispatch* object, const wchar_t* name,
+                           const wchar_t* text) {
+    VARIANT value;
+    if (wfc_call(object, name, DISPATCH_PROPERTYGET, NULL, 0, &value, NULL) !=
+            S_OK ||
+        value.vt != VT_BSTR) {
+        return 0;
+    }
+    return wcscmp(value.bstrVal, text) == 0;
+}
+
+/* Calls Add; returns the number of the error, 0 when it worked. */
+static long wfc_add(IDispatch* collection, VARIANT* arguments, UINT count,
+                    IDispatch** made) {
+    VARIANT result;
+    EXCEPINFO exception;
+    HRESULT outcome;
+    memset(&exception, 0, sizeof(exception));
+    outcome = wfc_call(collection, L"Add", DISPATCH_METHOD, arguments, count,
+                       &result, &exception);
+    if (outcome == DISP_E_EXCEPTION) {
+        long number = (long)(exception.scode & 0xFFFF);
+        wfc_free_exception(&exception);
+        return number;
+    }
+    if (outcome != S_OK) {
+        return -1;
+    }
+    if (made != NULL && result.vt == VT_DISPATCH) {
+        *made = result.pdispVal;
+    } else {
+        VariantClear(&result);
+    }
+    return 0;
+}
+
+static IDispatch* wfc_create(const wchar_t* dll_path, const wchar_t* clsid_text,
+                             const char* what) {
+    typedef HRESULT(__stdcall * get_class_object)(REFCLSID, REFIID, void**);
+    HMODULE module = LoadLibraryW(dll_path);
+    get_class_object get;
+    CLSID clsid;
+    IClassFactory* factory = NULL;
+    IDispatch* control = NULL;
+    if (module == NULL) {
+        wfc_check_fail("cannot load", dll_path);
+    }
+    get = (get_class_object)(void*)GetProcAddress(module, "DllGetClassObject");
+    CLSIDFromString(clsid_text, &clsid);
+    CoInitializeEx(NULL, COINIT_APARTMENTTHREADED);
+    if (get == NULL ||
+        get(&clsid, &IID_IClassFactory, (void**)&factory) != S_OK ||
+        factory->lpVtbl->CreateInstance(factory, NULL, &IID_IDispatch,
+                                        (void**)&control) != S_OK) {
+        wfc_check_fail(what, dll_path);
+    }
+    factory->lpVtbl->Release(factory);
+    return control;
+}
+
+static IDispatch* wfc_collection(IDispatch* control, const wchar_t* name,
+                                 const wchar_t* path) {
+    VARIANT value;
+    if (wfc_call(control, name, DISPATCH_PROPERTYGET, NULL, 0, &value, NULL) !=
+            S_OK ||
+        value.vt != VT_DISPATCH || value.pdispVal == NULL) {
+        wfc_check_fail("the collection is missing in", path);
+    }
+    return value.pdispVal;
+}
+
+static void wfc_check_collections(const wchar_t* dll_path) {
+    IDispatch* tabstrip = wfc_create(
+        dll_path, L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}", "no TabStrip in");
+    IDispatch* tabs = wfc_collection(tabstrip, L"Tabs", dll_path);
+    IDispatch* made = NULL;
+    IDispatch* second = NULL;
+    IDispatch* chosen = NULL;
+    VARIANT args[5];
+    VARIANT value;
+    VARIANT selector;
+    EXCEPINFO exception;
+    long errors;
+    int i;
+
+    memset(&exception, 0, sizeof(exception));
+    wfc_missing(&args[0]);
+    wfc_text(&args[1], L"a");
+    wfc_text(&args[2], L"First");
+    if (wfc_add(tabs, args, 3, &made) != 0 || made == NULL) {
+        wfc_check_fail("Tabs.Add failed in", dll_path);
+    }
+    wfc_missing(&args[0]);
+    wfc_text(&args[1], L"b");
+    wfc_text(&args[2], L"Second");
+    if (wfc_add(tabs, args, 3, &second) != 0 || second == NULL) {
+        wfc_check_fail("the second Tabs.Add failed in", dll_path);
+    }
+    if (wfc_property_number(tabs, L"Count") != 2 ||
+        wfc_property_number(second, L"Index") != 2 ||
+        !wfc_property_is(second, L"Caption", L"Second") ||
+        !wfc_property_is(made, L"Key", L"a")) {
+        wfc_check_fail("the tabs are not what was added in", dll_path);
+    }
+    wfc_missing(&args[0]);
+    wfc_text(&args[1], L"A");
+    wfc_text(&args[2], L"Duplicate");
+    if ((errors = wfc_add(tabs, args, 3, NULL)) != 35602) {
+        wfc_check_fail("a duplicate key was not error 35602 in", dll_path);
+    }
+    wfc_number(&args[0], 9);
+    wfc_text(&args[1], L"c");
+    wfc_text(&args[2], L"Far");
+    if ((errors = wfc_add(tabs, args, 3, NULL)) != 35600) {
+        wfc_check_fail("index 9 was not error 35600 in", dll_path);
+    }
+    wfc_number(&args[0], 1);
+    wfc_text(&args[1], L"front");
+    wfc_text(&args[2], L"Front");
+    if (wfc_add(tabs, args, 3, NULL) != 0 ||
+        wfc_property_number(second, L"Index") != 3) {
+        wfc_check_fail("Add at an index did not insert in", dll_path);
+    }
+    wfc_text(&selector, L"B");
+    chosen = wfc_item(tabs, &selector);
+    if (chosen == NULL || !wfc_property_is(chosen, L"Key", L"b")) {
+        wfc_check_fail("Item by key (any case) failed in", dll_path);
+    }
+    chosen->lpVtbl->Release(chosen);
+
+    /* The first tab ever added stays selected; SelectedItem follows. */
+    if (wfc_call(tabstrip, L"SelectedItem", DISPATCH_PROPERTYGET, NULL, 0,
+                 &value, NULL) != S_OK ||
+        value.vt != VT_DISPATCH || value.pdispVal == NULL ||
+        !wfc_property_is(value.pdispVal, L"Key", L"a")) {
+        wfc_check_fail("the first tab is not selected in", dll_path);
+    }
+    VariantClear(&value);
+    value.vt = VT_DISPATCH;
+    value.pdispVal = second;
+    if (wfc_call(tabstrip, L"SelectedItem",
+                 DISPATCH_PROPERTYPUT | DISPATCH_PROPERTYPUTREF, &value, 1,
+                 NULL, &exception) != S_OK) {
+        wfc_check_fail("SelectedItem could not be set in", dll_path);
+    }
+    wfc_number(&selector, 3);
+    wfc_call(tabs, L"Remove", DISPATCH_METHOD, &selector, 1, NULL, NULL);
+    if (wfc_call(tabstrip, L"SelectedItem", DISPATCH_PROPERTYGET, NULL, 0,
+                 &value, NULL) != S_OK ||
+        value.vt != VT_DISPATCH || value.pdispVal == NULL ||
+        !wfc_property_is(value.pdispVal, L"Key", L"a")) {
+        wfc_check_fail(
+            "removing the selected tab did not select its neighbour in",
+            dll_path);
+    }
+    VariantClear(&value);
+    wfc_number(&selector, 9);
+    memset(&exception, 0, sizeof(exception));
+    if (wfc_call(tabs, L"Remove", DISPATCH_METHOD, &selector, 1, NULL,
+                 &exception) != DISP_E_EXCEPTION ||
+        (exception.scode & 0xFFFF) != 35600) {
+        wfc_check_fail("Remove(9) was not error 35600 in", dll_path);
+    }
+    wfc_free_exception(&exception);
+    made->lpVtbl->Release(made);
+    second->lpVtbl->Release(second);
+    tabs->lpVtbl->Release(tabs);
+    tabstrip->lpVtbl->Release(tabstrip);
+
+    /* A status bar holds sixteen panels. */
+    {
+        IDispatch* bar =
+            wfc_create(dll_path, L"{11033AF3-05F7-58AE-93B1-596BB33150BB}",
+                       "no StatusBar in");
+        IDispatch* panels = wfc_collection(bar, L"Panels", dll_path);
+        for (i = 0; i < 16; ++i) {
+            wfc_missing(&args[0]);
+            wfc_missing(&args[1]);
+            wfc_text(&args[2], L"Panel");
+            if (wfc_add(panels, args, 3, NULL) != 0) {
+                wfc_check_fail("Panels.Add failed in", dll_path);
+            }
+        }
+        wfc_missing(&args[0]);
+        wfc_missing(&args[1]);
+        wfc_text(&args[2], L"One too many");
+        if (wfc_add(panels, args, 3, NULL) != 35609 ||
+            wfc_property_number(panels, L"Count") != 16) {
+            wfc_check_fail("the seventeenth panel was not error 35609 in",
+                           dll_path);
+        }
+        panels->lpVtbl->Release(panels);
+        bar->lpVtbl->Release(bar);
+    }
+
+    /* A toolbar's buttons keep the style they were added with. */
+    {
+        IDispatch* bar =
+            wfc_create(dll_path, L"{EEBB0901-096F-52EB-A609-86815871912F}",
+                       "no Toolbar in");
+        IDispatch* buttons = wfc_collection(bar, L"Buttons", dll_path);
+        IDispatch* button = NULL;
+        IEnumVARIANT* walk = NULL;
+        ULONG fetched = 0;
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"save");
+        wfc_text(&args[2], L"Save");
+        wfc_number(&args[3], 1);
+        if (wfc_add(buttons, args, 4, &button) != 0 || button == NULL ||
+            wfc_property_number(button, L"Style") != 1) {
+            wfc_check_fail("Buttons.Add lost the style in", dll_path);
+        }
+        if (wfc_call(buttons, L"_NewEnum", DISPATCH_METHOD, NULL, 0, &value,
+                     NULL) != S_OK ||
+            value.vt != VT_UNKNOWN ||
+            value.punkVal->lpVtbl->QueryInterface(
+                value.punkVal, &IID_IEnumVARIANT, (void**)&walk) != S_OK ||
+            walk->lpVtbl->Next(walk, 1, &value, &fetched) != S_OK ||
+            fetched != 1 || value.vt != VT_DISPATCH ||
+            !wfc_property_is(value.pdispVal, L"Key", L"save")) {
+            wfc_check_fail("For Each over the buttons failed in", dll_path);
+        }
+        VariantClear(&value);
+        walk->lpVtbl->Release(walk);
+        button->lpVtbl->Release(button);
+        buttons->lpVtbl->Release(buttons);
+        bar->lpVtbl->Release(bar);
+    }
+    printf("TabStrip, StatusBar, Toolbar: the collections work through COM\n");
+}
+
 int main(int argc, char** argv) {
     int checked = wfc_check_dll(argc, argv, L"mscomctl", kClasses,
                                 sizeof(kClasses) / sizeof(kClasses[0]));
@@ -141,6 +447,7 @@ int main(int argc, char** argv) {
     wfc_check_range(wfc_check_widen(argv[1]),
                     L"{FA3BFA10-D0F7-579F-A62B-339D7E21E9ED}", 100.0,
                     "ProgressBar");
+    wfc_check_collections(wfc_check_widen(argv[1]));
     return wfc_check_create(wfc_check_widen(argv[1]),
                             L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}",
                             L"Enabled", L"Refresh");

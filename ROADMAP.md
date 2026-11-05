@@ -66,7 +66,12 @@ item is present, tested and passing in CI; an unchecked one is planned.
         Overlay, combo text matching and selection): `images.hpp`
         (ADR-0010 step 6), pinned by corpus 226 and tested by
         `images_test`.
-  - [ ] The COM collections (ADR-0010 step 7).
+  - [x] COM collections of TabStrip, StatusBar and Toolbar (`Tabs`,
+        `Panels`, `Buttons`: Add, Remove, Clear, Count, Item, For Each,
+        SelectedItem), `src/com_collections.hpp` (ADR-0010 step 7, first
+        part).
+  - [ ] COM collections of TreeView, ListView, ImageList and ImageCombo,
+        and the events of the collections (BeforeClick, Click).
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 
