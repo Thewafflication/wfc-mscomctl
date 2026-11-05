@@ -75,8 +75,12 @@ item is present, tested and passing in CI; an unchecked one is planned.
         SelectedItem).
   - [x] COM `Nodes` of the TreeView (Relative and Relationship, the
         links of a node, FullPath, Remove with the descendants).
-  - [ ] `ListSubItems`, the binding of an ImageList, the sorting of
-        nodes, and the events of the collections (BeforeClick, Click).
+  - [x] The events of a selection made by the program (BeforeClick,
+        Click, Change), `ListSubItems`, `SubItems`, `ButtonMenus`, the
+        binding of an ImageList and its size, node sorting,
+        `PathSeparator` and the Text of an ImageCombo through COM.
+  - [ ] The events that need a mouse or a window (NodeClick, ItemClick,
+        label edits) for a COM client.
 - [x] A C test creates the control through COM and calls a few members
       (`wfc_check_create` in `tests/dll_check.h`).
 

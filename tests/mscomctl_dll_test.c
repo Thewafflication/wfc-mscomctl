@@ -609,6 +609,397 @@ static void wfc_check_collections(const wchar_t* dll_path) {
         "TreeView: the collections work through COM\n");
 }
 
+/* ---- Events, sub collections, bound image lists, sorting and the text of an
+ * ImageCombo (ADR-0010 step 7, last part). */
+
+/* An event sink: records the dispatch id of each event and, when asked, sets
+ * the Cancel argument of a cancellable one. */
+static long wfc_sink_events[16];
+static int wfc_sink_count = 0;
+static int wfc_sink_cancel = 0;
+
+static HRESULT __stdcall wfc_sink_qi(IDispatch* self, REFIID iid,
+                                     void** object) {
+    if (IsEqualIID(iid, &IID_IUnknown) || IsEqualIID(iid, &IID_IDispatch)) {
+        *object = self;
+        return S_OK;
+    }
+    *object = NULL;
+    return E_NOINTERFACE;
+}
+
+static ULONG __stdcall wfc_sink_ref(IDispatch* self) {
+    (void)self;
+    return 2;
+}
+
+static HRESULT __stdcall wfc_sink_count_types(IDispatch* self, UINT* count) {
+    (void)self;
+    *count = 0;
+    return S_OK;
+}
+
+static HRESULT __stdcall wfc_sink_type(IDispatch* self, UINT n, LCID lcid,
+                                       ITypeInfo** info) {
+    (void)self;
+    (void)n;
+    (void)lcid;
+    *info = NULL;
+    return E_NOTIMPL;
+}
+
+static HRESULT __stdcall wfc_sink_ids(IDispatch* self, REFIID iid,
+                                      LPOLESTR* names, UINT count, LCID lcid,
+                                      DISPID* ids) {
+    (void)self;
+    (void)iid;
+    (void)names;
+    (void)count;
+    (void)lcid;
+    (void)ids;
+    return DISP_E_UNKNOWNNAME;
+}
+
+static HRESULT __stdcall wfc_sink_invoke(IDispatch* self, DISPID id, REFIID iid,
+                                         LCID lcid, WORD flags,
+                                         DISPPARAMS* params, VARIANT* result,
+                                         EXCEPINFO* exception, UINT* arg) {
+    (void)self;
+    (void)iid;
+    (void)lcid;
+    (void)flags;
+    (void)result;
+    (void)exception;
+    (void)arg;
+    if (wfc_sink_count < 16) {
+        wfc_sink_events[wfc_sink_count++] = (long)id;
+    }
+    if (wfc_sink_cancel && params->cArgs == 1 &&
+        params->rgvarg[0].vt == (VT_I2 | VT_BYREF)) {
+        *params->rgvarg[0].piVal = -1;
+    }
+    return S_OK;
+}
+
+static IDispatchVtbl wfc_sink_vtbl = {
+    wfc_sink_qi,   wfc_sink_ref, wfc_sink_ref,    wfc_sink_count_types,
+    wfc_sink_type, wfc_sink_ids, wfc_sink_invoke,
+};
+static IDispatch wfc_sink = {&wfc_sink_vtbl};
+
+static void wfc_listen(IDispatch* control, const wchar_t* path) {
+    IConnectionPointContainer* container = NULL;
+    IConnectionPoint* point = NULL;
+    DWORD cookie = 0;
+    if (control->lpVtbl->QueryInterface(control, &IID_IConnectionPointContainer,
+                                        (void**)&container) != S_OK ||
+        container->lpVtbl->FindConnectionPoint(container, &IID_IDispatch,
+                                               &point) != S_OK ||
+        point->lpVtbl->Advise(point, (IUnknown*)&wfc_sink, &cookie) != S_OK) {
+        wfc_check_fail("cannot listen to the events of a control in", path);
+    }
+    point->lpVtbl->Release(point);
+    container->lpVtbl->Release(container);
+}
+
+static void wfc_expect_events(const wchar_t* path, const char* what, int count,
+                              long first, long second) {
+    if (wfc_sink_count != count || (count > 0 && wfc_sink_events[0] != first) ||
+        (count > 1 && wfc_sink_events[1] != second)) {
+        wfc_check_fail(what, path);
+    }
+    wfc_sink_count = 0;
+}
+
+static void wfc_check_more(const wchar_t* dll_path) {
+    VARIANT args[5];
+    VARIANT value;
+    VARIANT selector;
+    IDispatch* made = NULL;
+
+    /* A selection made by the program raises BeforeClick (id 1, which can be
+     * cancelled) and Click (id -600) on a TabStrip. */
+    {
+        IDispatch* strip =
+            wfc_create(dll_path, L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}",
+                       "no TabStrip in");
+        IDispatch* tabs = wfc_collection(strip, L"Tabs", dll_path);
+        IDispatch* first = NULL;
+        IDispatch* second = NULL;
+        wfc_listen(strip, dll_path);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"a");
+        wfc_text(&args[2], L"A");
+        wfc_add(tabs, args, 3, &first);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"b");
+        wfc_text(&args[2], L"B");
+        wfc_add(tabs, args, 3, &second);
+        wfc_expect_events(dll_path, "Add raised an event in", 0, 0, 0);
+        value.vt = VT_BOOL;
+        value.boolVal = VARIANT_TRUE;
+        wfc_call(second, L"Selected", DISPATCH_PROPERTYPUT, &value, 1, NULL,
+                 NULL);
+        wfc_expect_events(
+            dll_path, "Selected = True did not raise BeforeClick and Click in",
+            2, 1, -600);
+        wfc_call(second, L"Selected", DISPATCH_PROPERTYPUT, &value, 1, NULL,
+                 NULL);
+        wfc_expect_events(
+            dll_path, "selecting the selected tab raised events in", 0, 0, 0);
+        wfc_sink_cancel = 1;
+        wfc_call(first, L"Selected", DISPATCH_PROPERTYPUT, &value, 1, NULL,
+                 NULL);
+        wfc_sink_cancel = 0;
+        wfc_expect_events(
+            dll_path, "a cancelled BeforeClick did not still raise Click in", 2,
+            1, -600);
+        if (wfc_call(strip, L"SelectedItem", DISPATCH_PROPERTYGET, NULL, 0,
+                     &value, NULL) != S_OK ||
+            !wfc_property_is(value.pdispVal, L"Key", L"b")) {
+            wfc_check_fail("a cancelled BeforeClick changed the selection in",
+                           dll_path);
+        }
+        VariantClear(&value);
+        first->lpVtbl->Release(first);
+        second->lpVtbl->Release(second);
+        tabs->lpVtbl->Release(tabs);
+        strip->lpVtbl->Release(strip);
+    }
+
+    /* An ImageCombo's Text follows its selection and the other way round. */
+    {
+        IDispatch* combo =
+            wfc_create(dll_path, L"{8E6ABCF0-6E14-5091-9BE5-B04948C170AE}",
+                       "no ImageCombo in");
+        IDispatch* entries = wfc_collection(combo, L"ComboItems", dll_path);
+        IDispatch* red = NULL;
+        wfc_listen(combo, dll_path);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"red");
+        wfc_text(&args[2], L"Red");
+        wfc_add(entries, args, 3, &red);
+        wfc_text(&value, L"RED");
+        wfc_call(combo, L"Text", DISPATCH_PROPERTYPUT, &value, 1, NULL, NULL);
+        wfc_expect_events(dll_path, "setting Text did not raise Change in", 1,
+                          1, 0);
+        if (wfc_call(combo, L"SelectedItem", DISPATCH_PROPERTYGET, NULL, 0,
+                     &value, NULL) != S_OK ||
+            value.pdispVal == NULL ||
+            !wfc_property_is(value.pdispVal, L"Key", L"red")) {
+            wfc_check_fail("Text did not select the item in", dll_path);
+        }
+        VariantClear(&value);
+        wfc_text(&value, L"custom");
+        wfc_call(combo, L"Text", DISPATCH_PROPERTYPUT, &value, 1, NULL, NULL);
+        wfc_sink_count = 0;
+        if (wfc_call(combo, L"SelectedItem", DISPATCH_PROPERTYGET, NULL, 0,
+                     &value, NULL) != S_OK ||
+            value.pdispVal != NULL) {
+            wfc_check_fail("an unknown Text left an item selected in",
+                           dll_path);
+        }
+        wfc_number(&value, 1);
+        wfc_call(combo, L"SelStart", DISPATCH_PROPERTYPUT, &value, 1, NULL,
+                 NULL);
+        wfc_number(&value, 3);
+        wfc_call(combo, L"SelLength", DISPATCH_PROPERTYPUT, &value, 1, NULL,
+                 NULL);
+        if (!wfc_property_is(combo, L"SelText", L"ust")) {
+            wfc_check_fail("SelText is wrong in", dll_path);
+        }
+        value.vt = VT_DISPATCH;
+        value.pdispVal = red;
+        wfc_call(combo, L"SelectedItem",
+                 DISPATCH_PROPERTYPUT | DISPATCH_PROPERTYPUTREF, &value, 1,
+                 NULL, NULL);
+        wfc_expect_events(dll_path,
+                          "SelectedItem did not raise Click and Change in", 2,
+                          -600, 1);
+        if (!wfc_property_is(combo, L"Text", L"Red")) {
+            wfc_check_fail("SelectedItem did not set Text in", dll_path);
+        }
+        red->lpVtbl->Release(red);
+        entries->lpVtbl->Release(entries);
+        combo->lpVtbl->Release(combo);
+    }
+
+    /* SubItems, ListSubItems and ButtonMenus. */
+    {
+        IDispatch* list =
+            wfc_create(dll_path, L"{2C1007A3-9018-519F-A902-87E3E466A897}",
+                       "no ListView in");
+        IDispatch* items = wfc_collection(list, L"ListItems", dll_path);
+        IDispatch* item = NULL;
+        IDispatch* subs = NULL;
+        VARIANT sub;
+        EXCEPINFO exception;
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"k");
+        wfc_text(&args[2], L"Item");
+        wfc_add(items, args, 3, &item);
+        wfc_number(&args[0], 2);
+        wfc_text(&args[1], L"two");
+        wfc_call(item, L"SubItems", DISPATCH_PROPERTYPUT, args, 2, NULL, NULL);
+        wfc_number(&args[0], 2);
+        if (wfc_call(item, L"SubItems", DISPATCH_PROPERTYGET, args, 1, &sub,
+                     NULL) != S_OK ||
+            sub.vt != VT_BSTR || wcscmp(sub.bstrVal, L"two") != 0) {
+            wfc_check_fail("SubItems(2) is wrong in", dll_path);
+        }
+        wfc_number(&args[0], 9);
+        memset(&exception, 0, sizeof(exception));
+        if (wfc_call(item, L"SubItems", DISPATCH_PROPERTYGET, args, 1, &sub,
+                     &exception) != DISP_E_EXCEPTION ||
+            (exception.scode & 0xFFFF) != 35600) {
+            wfc_check_fail("SubItems(9) was not error 35600 in", dll_path);
+        }
+        wfc_free_exception(&exception);
+        if (wfc_call(item, L"ListSubItems", DISPATCH_PROPERTYGET, NULL, 0, &sub,
+                     NULL) != S_OK ||
+            sub.vt != VT_DISPATCH ||
+            wfc_property_number(sub.pdispVal, L"Count") != 2) {
+            wfc_check_fail("ListSubItems does not hold the sub items in",
+                           dll_path);
+        }
+        VariantClear(&sub);
+        item->lpVtbl->Release(item);
+        items->lpVtbl->Release(items);
+        list->lpVtbl->Release(list);
+
+        list = wfc_create(dll_path, L"{EEBB0901-096F-52EB-A609-86815871912F}",
+                          "no Toolbar in");
+        items = wfc_collection(list, L"Buttons", dll_path);
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"b");
+        wfc_text(&args[2], L"Button");
+        wfc_number(&args[3], 5);
+        wfc_add(items, args, 4, &item);
+        if (wfc_call(item, L"ButtonMenus", DISPATCH_PROPERTYGET, NULL, 0, &sub,
+                     NULL) != S_OK ||
+            sub.vt != VT_DISPATCH) {
+            wfc_check_fail("a button has no ButtonMenus in", dll_path);
+        }
+        subs = sub.pdispVal;
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"m");
+        wfc_text(&args[2], L"Menu");
+        if (wfc_add(subs, args, 3, NULL) != 0 ||
+            wfc_property_number(subs, L"Count") != 1) {
+            wfc_check_fail("ButtonMenus.Add failed in", dll_path);
+        }
+        subs->lpVtbl->Release(subs);
+        item->lpVtbl->Release(item);
+        items->lpVtbl->Release(items);
+        list->lpVtbl->Release(list);
+    }
+
+    /* An ImageList given to a control keeps its images (35615), and its size
+     * is read-only once there are images (35614). */
+    {
+        IDispatch* images =
+            wfc_create(dll_path, L"{9217D929-9C68-526C-928E-99E4E4D6B815}",
+                       "no ImageList in");
+        IDispatch* pictures = wfc_collection(images, L"ListImages", dll_path);
+        IDispatch* strip =
+            wfc_create(dll_path, L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}",
+                       "no TabStrip in");
+        EXCEPINFO exception;
+        memset(&exception, 0, sizeof(exception));
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"one");
+        wfc_text(&args[2], L"picture");
+        wfc_add(pictures, args, 3, NULL);
+        value.vt = VT_DISPATCH;
+        value.pdispVal = images;
+        wfc_call(strip, L"ImageList",
+                 DISPATCH_PROPERTYPUT | DISPATCH_PROPERTYPUTREF, &value, 1,
+                 NULL, NULL);
+        wfc_text(&selector, L"one");
+        if (wfc_call(pictures, L"Remove", DISPATCH_METHOD, &selector, 1, NULL,
+                     &exception) != DISP_E_EXCEPTION ||
+            (exception.scode & 0xFFFF) != 35615) {
+            wfc_check_fail("removing from a bound ImageList was not 35615 in",
+                           dll_path);
+        }
+        wfc_free_exception(&exception);
+        wfc_number(&args[0], 1);
+        wfc_text(&args[1], L"front");
+        wfc_text(&args[2], L"picture");
+        if (wfc_add(pictures, args, 3, NULL) != 35615) {
+            wfc_check_fail("inserting in a bound ImageList was not 35615 in",
+                           dll_path);
+        }
+        wfc_missing(&args[0]);
+        wfc_text(&args[1], L"end");
+        wfc_text(&args[2], L"picture");
+        if (wfc_add(pictures, args, 3, NULL) != 0) {
+            wfc_check_fail("appending to a bound ImageList failed in",
+                           dll_path);
+        }
+        wfc_number(&value, 32);
+        if (wfc_call(images, L"ImageWidth", DISPATCH_PROPERTYPUT, &value, 1,
+                     NULL, &exception) != DISP_E_EXCEPTION ||
+            (exception.scode & 0xFFFF) != 35614) {
+            wfc_check_fail("ImageWidth after images was not 35614 in",
+                           dll_path);
+        }
+        wfc_free_exception(&exception);
+        strip->lpVtbl->Release(strip);
+        pictures->lpVtbl->Release(pictures);
+        images->lpVtbl->Release(images);
+    }
+
+    /* A sorted TreeView, and its PathSeparator. */
+    {
+        IDispatch* tree =
+            wfc_create(dll_path, L"{B10A6F9B-431E-59EF-B149-F118AEA46D00}",
+                       "no TreeView in");
+        IDispatch* nodes = wfc_collection(tree, L"Nodes", dll_path);
+        IDispatch* kid = NULL;
+        value.vt = VT_BOOL;
+        value.boolVal = VARIANT_TRUE;
+        wfc_call(tree, L"Sorted", DISPATCH_PROPERTYPUT, &value, 1, NULL, NULL);
+        wfc_text(&value, L"/");
+        wfc_call(tree, L"PathSeparator", DISPATCH_PROPERTYPUT, &value, 1, NULL,
+                 NULL);
+        wfc_missing(&args[0]);
+        wfc_missing(&args[1]);
+        wfc_text(&args[2], L"b");
+        wfc_text(&args[3], L"Beta");
+        wfc_add(nodes, args, 4, NULL);
+        wfc_missing(&args[0]);
+        wfc_missing(&args[1]);
+        wfc_text(&args[2], L"a");
+        wfc_text(&args[3], L"alpha");
+        wfc_add(nodes, args, 4, &made);
+        wfc_text(&args[0], L"a");
+        wfc_number(&args[1], 4);
+        wfc_text(&args[2], L"c");
+        wfc_text(&args[3], L"Child");
+        wfc_add(nodes, args, 4, &kid);
+        if (wfc_call(made, L"FirstSibling", DISPATCH_PROPERTYGET, NULL, 0,
+                     &value, NULL) != S_OK ||
+            value.vt != VT_DISPATCH ||
+            !wfc_property_is(value.pdispVal, L"Key", L"a")) {
+            wfc_check_fail("a sorted TreeView did not put alpha first in",
+                           dll_path);
+        }
+        VariantClear(&value);
+        if (!wfc_property_is(kid, L"FullPath", L"alpha/Child")) {
+            wfc_check_fail("PathSeparator is not used by FullPath in",
+                           dll_path);
+        }
+        kid->lpVtbl->Release(kid);
+        made->lpVtbl->Release(made);
+        nodes->lpVtbl->Release(nodes);
+        tree->lpVtbl->Release(tree);
+    }
+    printf(
+        "events, sub collections, bound image lists and sorting work "
+        "through COM\n");
+}
+
 int main(int argc, char** argv) {
     int checked = wfc_check_dll(argc, argv, L"mscomctl", kClasses,
                                 sizeof(kClasses) / sizeof(kClasses[0]));
@@ -621,6 +1012,7 @@ int main(int argc, char** argv) {
                     L"{FA3BFA10-D0F7-579F-A62B-339D7E21E9ED}", 100.0,
                     "ProgressBar");
     wfc_check_collections(wfc_check_widen(argv[1]));
+    wfc_check_more(wfc_check_widen(argv[1]));
     return wfc_check_create(wfc_check_widen(argv[1]),
                             L"{05B6AB6B-6444-5494-AFE6-1D8431CB104B}",
                             L"Enabled", L"Refresh");

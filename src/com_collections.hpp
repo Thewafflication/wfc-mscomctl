@@ -1,15 +1,17 @@
 // The collections of the controls of the library when a COM client creates
-// them (ADR-0010, step 7): TabStrip.Tabs, StatusBar.Panels and Toolbar.Buttons
-// as late-bound objects (Add, Remove, Clear, Count, Item, _NewEnum) whose items
-// are late-bound objects over a property bag. The rules (which index or key
-// names an item, where Add inserts, the limit of panels, the tab that is
-// selected after an Add or a Remove, the error numbers) are items.hpp, which
-// the WFC evaluator uses too. Windows only; internal to the WFC libraries.
+// them (ADR-0010, step 7): Tabs, Panels, Buttons, Nodes, ListItems,
+// ColumnHeaders, ListImages and ComboItems (and the ListSubItems and
+// ButtonMenus of their items) as late-bound objects (Add, Remove, Clear, Count,
+// Item, _NewEnum) whose items are late-bound objects over a property bag. The
+// rules (which index or key names an item, where Add inserts, the limit of
+// panels, the tab that is selected after an Add or a Remove, the error numbers)
+// are items.hpp, which the WFC evaluator uses too. Windows only; internal to
+// the WFC libraries.
 //
 // The collections are returned by a Behaviour (com_behaviour.hpp) as the value
-// of the Tabs, Panels and Buttons properties, so the class factory needs no
-// change. Events (BeforeClick, Click) are not raised here yet: they are the
-// two-step operations of ADR-0010 decision 4.
+// of those properties. The events of a selection made by the program
+// (BeforeClick and Click of a TabStrip, Click and Change of an ImageCombo) go
+// through the raiser that the class factory hands to Behaviour::attach.
 
 #ifndef WFC_MSCOMCTL_COM_COLLECTIONS_HPP
 #define WFC_MSCOMCTL_COM_COLLECTIONS_HPP
@@ -22,14 +24,20 @@
 #endif
 #include <windows.h>
 
+#include <ocidl.h>
 #include <oleauto.h>
+#include <olectl.h>
 
+#include <wfc/mscomctl/images.hpp>
 #include <wfc/mscomctl/items.hpp>
+#include <wfc/mscomctl/list.hpp>
 #include <wfc/mscomctl/tree.hpp>
 
 #include <algorithm>
 #include <atomic>
+#include <cmath>
 #include <cstddef>
+#include <functional>
 #include <map>
 #include <memory>
 #include <new>
@@ -214,11 +222,68 @@ struct KindSpec {
     return spec;
 }
 
+[[nodiscard]] inline const KindSpec& list_sub_item_spec() {
+    static const KindSpec spec{
+        "ListSubItem",
+        {"index", "key", "text", "reporticon", "tooltiptext"},
+        {{"text", 's', ""},
+         {"key", 's', ""},
+         {"tag", 'v', ""},
+         {"reporticon", 'v', ""},
+         {"forecolor", 'l', ""},
+         {"bold", 'b', ""},
+         {"tooltiptext", 's', ""}},
+        false,
+        false,
+        false,
+        false};
+    return spec;
+}
+
+[[nodiscard]] inline const KindSpec& button_menu_spec() {
+    static const KindSpec spec{"ButtonMenu",
+                               {"index", "key", "text"},
+                               {{"text", 's', ""},
+                                {"key", 's', ""},
+                                {"tag", 'v', ""},
+                                {"enabled", 'b', "1"},
+                                {"visible", 'b', "1"}},
+                               false,
+                               false,
+                               false,
+                               false};
+    return spec;
+}
+
+// The collection an item of this kind holds (a list item's ListSubItems, a
+// button's ButtonMenus), or null.
+[[nodiscard]] inline const KindSpec* sub_spec_of(const KindSpec& spec) {
+    const std::string name = spec.name;
+    return name == "ListItem" ? &list_sub_item_spec()
+           : name == "Button" ? &button_menu_spec()
+                              : nullptr;
+}
+
+[[nodiscard]] inline const char* sub_property_of(const KindSpec& spec) {
+    return std::string(spec.name) == "ListItem" ? "listsubitems"
+                                                : "buttonmenus";
+}
+
+// What a selection raises: 't' BeforeClick (cancellable) and Click, as a
+// TabStrip; 'c' Click and Change, as an ImageCombo; 0 nothing.
+[[nodiscard]] inline char event_style_of(const KindSpec& spec) {
+    const std::string name = spec.name;
+    return name == "Tab" ? 't' : name == "ComboItem" ? 'c' : '\0';
+}
+
+struct ListState;
+
 // One item: its properties by lower-case name.
 struct ItemData {
     std::map<std::string, VARIANT> properties;
     ItemData* parent = nullptr;  // a node's parent (the items own the nodes)
     std::vector<ItemData*> kids;
+    std::shared_ptr<ListState> sub;  // ListSubItems or ButtonMenus
 
     ItemData() = default;
     ItemData(const ItemData&) = delete;
@@ -239,6 +304,22 @@ struct ListState {
     std::vector<std::shared_ptr<ItemData>> items;
     std::vector<ItemData*> roots;  // the nodes without a parent, in order
     std::shared_ptr<ItemData> selected;
+
+    // Set by Behaviour::attach: raises an event of the control; true when a
+    // cancellable one was cancelled.
+    std::function<bool(const std::string&, bool)> raise;
+    bool bound = false;   // an ImageList drawn by a control
+    bool sorted = false;  // the Sorted property of a TreeView
+    std::string path_separator = "\\";
+    short image_width = 0;  // an ImageList: set by its first image
+    short image_height = 0;
+    std::string text;  // an ImageCombo: Text, SelStart and SelLength
+    double sel_start = 0.0;
+    double sel_length = 0.0;
+
+    bool emit(const char* name, const bool cancellable = false) const {
+        return raise ? raise(name, cancellable) : false;
+    }
 
     [[nodiscard]] std::shared_ptr<ItemData> share(const ItemData* data) const {
         for (const auto& item : items) {
@@ -443,6 +524,35 @@ inline void initial_value(const PropertySpec& property, VARIANT* out) {
     return nullptr;
 }
 
+[[nodiscard]] inline std::string text_of(const ItemData& item,
+                                         const char* name) {
+    const auto found = item.properties.find(name);
+    return found != item.properties.end() && found->second.vt == VT_BSTR
+               ? narrow(found->second.bstrVal)
+               : std::string{};
+}
+
+[[nodiscard]] inline bool flag_of(const ItemData& item, const char* name) {
+    const auto found = item.properties.find(name);
+    return found != item.properties.end() && found->second.vt == VT_BOOL &&
+           found->second.boolVal != VARIANT_FALSE;
+}
+
+[[nodiscard]] inline bool to_long(const VARIANT& value, long* out) {
+    VARIANT plain;
+    VARIANT number;
+    VariantInit(&plain);
+    VariantInit(&number);
+    bool ok = false;
+    if (VariantCopyInd(&plain, &value) == S_OK && is_number(plain) &&
+        VariantChangeType(&number, &plain, 0, VT_R8) == S_OK) {
+        *out = static_cast<long>(std::nearbyint(number.dblVal));
+        ok = true;
+    }
+    VariantClear(&plain);
+    return ok;
+}
+
 inline void set_nothing(VARIANT* result) {
     VariantInit(result);
     result->vt = VT_DISPATCH;
@@ -456,7 +566,82 @@ inline const GUID kItemIid = {0x6f0b3f20,
                               0x4a1e,
                               {0x9a, 0x6d, 0x31, 0x4c, 0x77, 0x0e, 0x2b, 0x91}};
 
+inline const GUID kCollectionIid = {
+    0x6f0b3f21,
+    0x5c0e,
+    0x4a1e,
+    {0x9a, 0x6d, 0x31, 0x4c, 0x77, 0x0e, 0x2b, 0x92}};
+
+// A new item with the initial value of each property (and its sub
+// collection, if its kind has one).
+[[nodiscard]] inline std::shared_ptr<ItemData> make_item(const KindSpec& spec) {
+    auto item = std::make_shared<ItemData>();
+    for (const PropertySpec& property : spec.properties) {
+        initial_value(property, &item->properties[property.name]);
+    }
+    if (const KindSpec* sub = sub_spec_of(spec)) {
+        item->sub = std::make_shared<ListState>(*sub);
+    }
+    return item;
+}
+
 }  // namespace detail
+
+// Sorts siblings by their text, as a sorted TreeView does (stable).
+inline void sort_siblings(std::vector<ItemData*>& kids) {
+    std::stable_sort(kids.begin(), kids.end(),
+                     [](const ItemData* left, const ItemData* right) {
+                         return text_before(detail::text_of(*left, "text"),
+                                            detail::text_of(*right, "text"));
+                     });
+}
+
+// Selects `item` as the program does (SelectedItem, Selected = True): a
+// TabStrip raises BeforeClick, which can cancel, and Click; an ImageCombo
+// takes the item's text and raises Click and Change.
+inline void select_item_notify(ListState& state,
+                               const std::shared_ptr<ItemData>& item) {
+    const char style = event_style_of(*state.spec);
+    if (style == 't') {
+        if (state.selected == item) {
+            return;
+        }
+        if (state.emit("BeforeClick", true)) {
+            state.emit("Click");  // the selection stays, Click still runs
+            return;
+        }
+        state.selected = item;
+        state.emit("Click");
+        return;
+    }
+    state.selected = item;
+    if (style == 'c') {
+        state.text = detail::text_of(*item, "text");
+        state.emit("Click");
+        state.emit("Change");
+    }
+}
+
+// The first image of an ImageList gives the list its size, in pixels.
+inline void measure_image(ListState& state, const VARIANT& picture) {
+    VARIANT plain;
+    VariantInit(&plain);
+    if (VariantCopyInd(&plain, &picture) == S_OK && plain.vt == VT_DISPATCH &&
+        plain.pdispVal != nullptr) {
+        IPicture* drawing = nullptr;
+        if (plain.pdispVal->QueryInterface(
+                IID_IPicture, reinterpret_cast<void**>(&drawing)) == S_OK) {
+            OLE_XSIZE_HIMETRIC width = 0;
+            OLE_YSIZE_HIMETRIC height = 0;
+            drawing->get_Width(&width);
+            drawing->get_Height(&height);
+            state.image_width = image_pixels(static_cast<long>(width));
+            state.image_height = image_pixels(static_cast<long>(height));
+            drawing->Release();
+        }
+    }
+    VariantClear(&plain);
+}
 
 // A late-bound object that finds its members by name.
 class LateObject : public IDispatch {
@@ -542,6 +727,9 @@ public:
             const std::string name = detail::lower(detail::narrow(names[i]));
             if (name == "index" || name == "selected" ||
                 (state_->spec->hierarchical && is_derived(name)) ||
+                (data_->sub != nullptr &&
+                 (name == sub_property_of(*state_->spec) ||
+                  name == "subitems")) ||
                 detail::find_property(*state_->spec, name) != nullptr) {
                 ids_.push_back(name);
                 ids[i] = static_cast<DISPID>(ids_.size());
@@ -563,12 +751,21 @@ public:
             if (parameters == nullptr || parameters->cArgs < 1) {
                 return DISP_E_BADPARAMCOUNT;
             }
+            if (name == "subitems") {
+                return put_sub_item(parameters, exception);
+            }
             return put(name, parameters->rgvarg[0], exception);
         }
         if (result == nullptr) {
             return S_OK;
         }
         VariantInit(result);
+        if (data_->sub != nullptr && name == sub_property_of(*state_->spec)) {
+            return sub_collection(result);
+        }
+        if (name == "subitems") {
+            return get_sub_item(parameters, result, exception);
+        }
         if (name == "index") {
             result->vt = VT_I4;
             result->lVal = static_cast<LONG>(position() + 1U);
@@ -590,6 +787,52 @@ public:
     }
 
 private:
+    // The ListSubItems or ButtonMenus of the item (defined below).
+    HRESULT sub_collection(VARIANT* result);
+
+    // SubItems(Index): 0 is the text of the item itself (list.hpp rules).
+    HRESULT get_sub_item(DISPPARAMS* parameters, VARIANT* result,
+                         EXCEPINFO* exception) {
+        long index = 0;
+        if (parameters == nullptr || parameters->cArgs != 1U ||
+            !detail::to_long(parameters->rgvarg[0], &index)) {
+            return detail::fail(exception, Status::type_mismatch);
+        }
+        const auto& sub = data_->sub->items;
+        const Status status = check_sub_item_read(index, sub.size());
+        if (status != Status::ok) {
+            return detail::fail(exception, status);
+        }
+        const ItemData& source =
+            index == 0 ? *data_ : *sub[static_cast<std::size_t>(index) - 1U];
+        return VariantCopy(result, &source.properties.at("text"));
+    }
+
+    HRESULT put_sub_item(DISPPARAMS* parameters, EXCEPINFO* exception) {
+        long index = 0;
+        VARIANT text;
+        if (parameters->cArgs != 2U ||
+            !detail::to_long(parameters->rgvarg[1], &index) ||
+            !detail::coerce('s', parameters->rgvarg[0], &text)) {
+            return detail::fail(exception, Status::type_mismatch);
+        }
+        const Status status = check_sub_item_write(index);
+        if (status != Status::ok) {
+            VariantClear(&text);
+            return detail::fail(exception, status);
+        }
+        auto& sub = data_->sub->items;
+        for (std::size_t missing = sub_items_to_add(index, sub.size());
+             missing > 0; --missing) {
+            sub.push_back(detail::make_item(*data_->sub->spec));
+        }
+        ItemData& target =
+            index == 0 ? *data_ : *sub[static_cast<std::size_t>(index) - 1U];
+        VariantClear(&target.properties["text"]);
+        target.properties["text"] = text;
+        return S_OK;
+    }
+
     [[nodiscard]] static bool is_derived(const std::string& name) {
         return name == "parent" || name == "children" || name == "child" ||
                name == "next" || name == "previous" || name == "firstsibling" ||
@@ -656,7 +899,7 @@ private:
                     ? detail::narrow(text->second.bstrVal)
                     : std::string{});
         }
-        const std::string path = join_path(parts, "\\");
+        const std::string path = join_path(parts, state_->path_separator);
         result->vt = VT_BSTR;
         const std::wstring wide(path.begin(), path.end());
         result->bstrVal = SysAllocString(wide.c_str());
@@ -684,7 +927,7 @@ private:
                 return detail::fail(exception, Status::type_mismatch);
             }
             if (flag.boolVal != VARIANT_FALSE && state_->spec->selectable) {
-                state_->selected = data_;
+                select_item_notify(*state_, data_);
             }
             return S_OK;
         }
@@ -715,6 +958,10 @@ private:
         }
         VariantClear(&data_->properties[name]);
         data_->properties[name] = converted;
+        if (name == "sorted" && state_->spec->hierarchical &&
+            converted.boolVal != VARIANT_FALSE) {
+            sort_siblings(data_->kids);
+        }
         return S_OK;
     }
 
@@ -806,6 +1053,19 @@ public:
     explicit CollectionObject(std::shared_ptr<ListState> state)
         : state_(std::move(state)) {}
 
+    [[nodiscard]] const std::shared_ptr<ListState>& state() const {
+        return state_;
+    }
+
+    HRESULT __stdcall QueryInterface(REFIID iid, void** object) override {
+        if (object != nullptr && IsEqualIID(iid, detail::kCollectionIid)) {
+            *object = this;
+            AddRef();
+            return S_OK;
+        }
+        return LateObject::QueryInterface(iid, object);
+    }
+
     // The item `selector` names, as an object; an error leaves `exception`.
     HRESULT item(const VARIANT& selector, VARIANT* result,
                  EXCEPINFO* exception) {
@@ -882,6 +1142,10 @@ public:
                     return outcome;
                 }
             case kClear:
+                if (const Status status = removal_status();
+                    status != Status::ok) {
+                    return detail::fail(exception, status);
+                }
                 for (const auto& item : state_->items) {
                     item->parent = nullptr;
                     item->kids.clear();
@@ -927,7 +1191,16 @@ private:
         return S_OK;
     }
 
+    // Remove and Clear of the images of an ImageList that a control draws.
+    [[nodiscard]] Status removal_status() const {
+        return state_->spec->needs_picture ? check_image_removal(state_->bound)
+                                           : Status::ok;
+    }
+
     HRESULT remove(const VARIANT& selector, EXCEPINFO* exception) {
+        if (const Status status = removal_status(); status != Status::ok) {
+            return detail::fail(exception, status);
+        }
         const auto lookup = find_in(detail::selector_of(selector));
         if (lookup.status != Status::ok) {
             return detail::fail(exception, lookup.status);
@@ -994,6 +1267,13 @@ private:
                 return detail::fail(exception, where.status);
             }
             position = where.position;
+            if (spec.needs_picture) {
+                const Status status = check_image_insert(
+                    state_->bound, position, state_->items.size());
+                if (status != Status::ok) {
+                    return detail::fail(exception, status);
+                }
+            }
         }
         if (spec.limited) {
             const Status status = check_panel_count(state_->items.size());
@@ -1001,11 +1281,7 @@ private:
                 return detail::fail(exception, status);
             }
         }
-        auto created = std::make_shared<ItemData>();
-        for (const PropertySpec& property : spec.properties) {
-            detail::initial_value(property,
-                                  &created->properties[property.name]);
-        }
+        auto created = detail::make_item(spec);
         for (const auto& [name, value] : given) {
             if (name == "index" || name == "relative" ||
                 name == "relationship") {
@@ -1048,6 +1324,10 @@ private:
             siblings.insert(siblings.begin() + static_cast<std::ptrdiff_t>(at),
                             created.get());
             state_->items.push_back(created);
+            if (state_->sorted ||
+                (parent != nullptr && detail::flag_of(*parent, "sorted"))) {
+                sort_siblings(siblings);
+            }
         } else {
             state_->items.insert(
                 state_->items.begin() + static_cast<std::ptrdiff_t>(position),
@@ -1055,6 +1335,9 @@ private:
         }
         if (spec.selects_first && selects_first_added(state_->items.size())) {
             state_->selected = created;
+        }
+        if (spec.needs_picture && first_image_sets_size(state_->items.size())) {
+            measure_image(*state_, created->properties["picture"]);
         }
         if (result == nullptr) {
             return S_OK;
@@ -1158,6 +1441,16 @@ private:
 
     std::shared_ptr<ListState> state_;
 };
+
+inline HRESULT ItemObject::sub_collection(VARIANT* result) {
+    auto* collection = new (std::nothrow) CollectionObject(data_->sub);
+    if (collection == nullptr) {
+        return E_OUTOFMEMORY;
+    }
+    result->vt = VT_DISPATCH;
+    result->pdispVal = collection;
+    return S_OK;
+}
 
 }  // namespace wfc::mscomctl::com
 
