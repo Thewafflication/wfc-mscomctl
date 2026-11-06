@@ -1313,7 +1313,7 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
         } else {
             // The rules of ProgressBar and Slider are the library's
             // (range.hpp).
-            wfc::mscomctl::RangeModel model{minimum, maximum, current};
+            wfc::mscomctl::RangeModel model{minimum, maximum, current, slider};
             const auto outcome = member == "min"   ? model.set_min(wanted)
                                  : member == "max" ? model.set_max(wanted)
                                                    : model.set_value(wanted);
@@ -1325,9 +1325,19 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
             maximum = model.max();
         }
         const double before = current;
+        if (member == "value" && slider) {
+            // A Slider brings Value inside Min and Max.
+            const double inside = std::min(std::max(wanted, minimum), maximum);
+            converted = Value{inside};
+            NativeFailure ignored;
+            if (const auto* row = ui::find_member(*self.cls, "value", 'l')) {
+                static_cast<void>(
+                    coerce_property(in, converted, row->type, ignored));
+            }
+        }
         self.values[member] = converted;
         if (member == "value") {
-            current = wanted;
+            current = slider ? as_double(converted) : wanted;
         }
         if (member != "value") {
             current = std::min(std::max(current, minimum), maximum);
@@ -1370,6 +1380,9 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
                     failure = FormSupport::reported();
                 }
             }
+            if (member == "sellength" && wanted != 0.0) {
+                failure = NativeFailure{380, "Invalid property value"};
+            }
             return true;  // SelLength has no effect in this mode
         }
         const double start =
@@ -1394,6 +1407,40 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
                               "Property is read-only after images are added"};
             return true;
         }
+    }
+    // Sizes and steps that cannot be negative (error 380, measured under
+    // Visual Basic 6).
+    static const std::set<std::pair<std::string, std::string>> unsigned_rows = {
+        {"imagecombo", "indentation"},  {"imagelist", "imageheight"},
+        {"imagelist", "imagewidth"},    {"tabstrip", "tabfixedwidth"},
+        {"tabstrip", "tabfixedheight"}, {"tabstrip", "tabminwidth"},
+        {"treeview", "indentation"},    {"slider", "smallchange"},
+        {"slider", "largechange"},      {"slider", "tickfrequency"},
+    };
+    if (const auto* row = ui::find_member(*self.cls, member, 'l')) {
+        // An enumeration of the control: Long, and only its own values.
+        Value converted = value;
+        NativeFailure refusal;
+        if (comctl_enum_range(row->type).has_value() &&
+            !coerce_property(in, converted, row->type, refusal, true)) {
+            failure = refusal;
+            return true;
+        }
+    }
+    if (self.class_key == "progressbar" &&
+        (member == "min" || member == "controldefault") && is_number(value)) {
+        const double wanted = as_double(value);
+        if (member == "min" ? wanted < 0.0
+                            : (wanted < number_property(self, "min") ||
+                               wanted > number_property(self, "max"))) {
+            failure = NativeFailure{380, "Invalid property value"};
+            return true;
+        }
+    }
+    if (unsigned_rows.contains({self.class_key, member}) && is_number(value) &&
+        as_double(value) < 0.0) {
+        failure = NativeFailure{380, "Invalid property value"};
+        return true;
     }
     return comctl_control_put(in, self, member, arguments, value, failure);
 }

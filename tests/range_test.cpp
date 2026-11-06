@@ -41,8 +41,9 @@ int main() {
     outcome = model.set_max(-1.0);
     expect(!outcome.valid && model.max() == 30.0, "Max below Min is 380");
     outcome = model.set_min(30.0);
-    expect(outcome.valid && !outcome.changed && model.min() == 30.0,
-           "Min equal to Max is allowed");
+    expect(!outcome.valid && model.min() == 0.0, "Min equal to Max is 380");
+    outcome = model.set_max(0.0);
+    expect(!outcome.valid && model.max() == 30.0, "Max equal to Min is 380");
     outcome = model.set_min(10.0);
     expect(outcome.valid && !outcome.changed && model.value() == 30.0,
            "a wider range leaves Value");
@@ -52,6 +53,14 @@ int main() {
            "a move stops at Max");
     outcome = model.move_to(0.0);
     expect(outcome.changed && model.value() == 10.0, "a move stops at Min");
+
+    RangeModel slider{0.0, 10.0, 5.0, true};
+    outcome = slider.set_value(99.0);
+    expect(outcome.valid && outcome.changed && slider.value() == 10.0,
+           "a Slider brings Value inside Max");
+    outcome = slider.set_value(-1.0);
+    expect(outcome.valid && slider.value() == 0.0,
+           "a Slider brings Value inside Min");
 
     if (failures == 0) {
         std::puts("range model: ok");

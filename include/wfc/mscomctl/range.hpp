@@ -3,8 +3,10 @@
 // on the WFC evaluator or on Windows; the evaluator, the COM objects of the
 // library and the tests all use it. Internal to the WFC libraries.
 //
-// The behaviour follows the documented controls (there is no reference probe
-// of the Microsoft controls yet, see COMPATIBILITY.md).
+// The behaviour is what MSCOMCTL.OCX does, measured under Visual Basic 6
+// (evidence/reference/control-probe): Min must stay below Max, and a Value
+// outside the range is refused by a ProgressBar (error 380) and brought inside
+// it by a Slider.
 
 #ifndef WFC_MSCOMCTL_RANGE_HPP
 #define WFC_MSCOMCTL_RANGE_HPP
@@ -24,17 +26,21 @@ public:
         bool changed = false;
     };
 
-    RangeModel(const double minimum, const double maximum, const double value)
-        : min_(minimum), max_(maximum), value_(value) {}
+    RangeModel(const double minimum, const double maximum, const double value,
+               const bool clamps_value = false)
+        : min_(minimum),
+          max_(maximum),
+          value_(value),
+          clamps_value_(clamps_value) {}
 
     [[nodiscard]] double min() const { return min_; }
     [[nodiscard]] double max() const { return max_; }
     [[nodiscard]] double value() const { return value_; }
 
-    // Min and Max: the range must stay ordered, and Value is brought inside
-    // it.
+    // Min and Max: the range must stay ordered (Min below Max), and Value is
+    // brought inside it.
     [[nodiscard]] Outcome set_min(const double minimum) {
-        if (minimum > max_) {
+        if (minimum >= max_) {
             return {false, false};
         }
         min_ = minimum;
@@ -42,15 +48,19 @@ public:
     }
 
     [[nodiscard]] Outcome set_max(const double maximum) {
-        if (maximum < min_) {
+        if (maximum <= min_) {
             return {false, false};
         }
         max_ = maximum;
         return clamp();
     }
 
-    // Value outside Min and Max is an invalid property value.
-    [[nodiscard]] Outcome set_value(const double wanted) {
+    // Value outside Min and Max is an invalid property value, except that a
+    // Slider brings it inside.
+    [[nodiscard]] Outcome set_value(double wanted) {
+        if (clamps_value_) {
+            wanted = std::min(std::max(wanted, min_), max_);
+        }
         if (wanted < min_ || wanted > max_) {
             return {false, false};
         }
@@ -77,6 +87,7 @@ private:
     double min_;
     double max_;
     double value_;
+    bool clamps_value_;
 };
 
 }  // namespace wfc::mscomctl
