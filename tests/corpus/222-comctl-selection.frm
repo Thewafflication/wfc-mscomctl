@@ -30,6 +30,9 @@ Private Function Chosen() As String
 End Function
 
 Private Sub Form_Load()
+    ' VB6 starts a TabStrip and a StatusBar with one item; start empty.
+    Tabs1.Tabs.Clear
+    Status1.Panels.Clear
     Dim i As Long
     ' The first tab added is selected, later ones are not.
     Tabs1.Tabs.Add , "a", "A"

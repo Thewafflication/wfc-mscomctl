@@ -17,6 +17,9 @@ End
 Attribute VB_Name = "Form1"
 Option Explicit
 Private Sub Form_Load()
+    ' VB6 starts a TabStrip and a StatusBar with one item; start empty.
+    Tabs1.Tabs.Clear
+    Status1.Panels.Clear
     Dim t As Tab, p As Panel
     Set t = Tabs1.Tabs.Add(, "one", "First")
     Tabs1.Tabs.Add , "two", "Second"

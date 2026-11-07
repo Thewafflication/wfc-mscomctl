@@ -45,6 +45,8 @@ Private Function KeyOf(c As ComboItem) As String
 End Function
 
 Private Sub Form_Load()
+    ' VB6 starts a TabStrip and a StatusBar with one item; start empty.
+    Tabs1.Tabs.Clear
     Dim p As String
     Dim o As Variant
     p = App.Path & "\226-comctl-image-rules.red.bmp"

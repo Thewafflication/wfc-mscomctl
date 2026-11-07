@@ -1119,6 +1119,32 @@ void ComctlSupport::init(ControlObject& control) {
     }
 }
 
+// A control loaded from a form file that holds no persisted tabs or panels
+// starts with one, as under VB6 (evidence/reference/control-render).
+void ComctlSupport::add_defaults(ControlObject& control) {
+    if (control.comctl == nullptr) {
+        return;
+    }
+    const std::string cls = lower_text(std::string(control.cls->name));
+    const char* kind = cls == "tabstrip"    ? "tab"
+                       : cls == "statusbar" ? "panel"
+                                            : nullptr;
+    if (kind == nullptr ||
+        !control.comctl->lists[list_name_of(kind)].empty()) {
+        return;
+    }
+    const KindSpec& spec = spec_of(kind);
+    auto first = std::make_shared<CItem>();
+    first->id = control.comctl->next_id++;
+    for (const auto& property : spec.props) {
+        first->p[property.name] = initial_value(property);
+    }
+    if (std::string(kind) == "tab") {
+        first->p["selected"] = Value{true};
+    }
+    control.comctl->lists[list_name_of(kind)].push_back(first);
+}
+
 namespace {
 
 [[nodiscard]] long offset_now(Interpreter& in) {
