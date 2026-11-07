@@ -27,7 +27,7 @@ Private Sub Form_Load()
     Debug.Print Tabs1.Tabs.Count; Tabs1.Tabs(1).Key; Tabs1.Tabs("one").Index; t.Caption; TypeName(t)
     Debug.Print Tabs1.SelectedItem.Key; Tabs1.Tabs(1).Selected
     Debug.Print Tabs1.Tabs(1).Left; Tabs1.Tabs(2).Left > Tabs1.Tabs(1).Left; Tabs1.ClientTop; Tabs1.ClientLeft
-    Debug.Print Tabs1.HitTest(10, 10).Key; (Tabs1.HitTest(3999, 1900) Is Nothing)
+    Debug.Print Tabs1.HitTest(Tabs1.Tabs(1).Left + 10, Tabs1.Tabs(1).Top + 10).Key; (Tabs1.HitTest(3999, 1900) Is Nothing)
     Set Tabs1.SelectedItem = Tabs1.Tabs("two")
     Debug.Print Tabs1.SelectedItem.Index; Tabs1.Tabs("two").Selected
     Tabs1.Tabs.Remove "two"

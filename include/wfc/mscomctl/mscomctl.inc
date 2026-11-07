@@ -51,7 +51,7 @@ const std::map<std::string, KindSpec>& kind_specs() {
            {"alignment", "Integer", ""},
            {"bevel", "Integer", "1"},
            {"autosize", "Integer", ""},
-           {"width", "Single", ""},
+           {"width", "Single", "1440"},
            {"minwidth", "Single", "960"},
            {"picture", "Variant", ""},
            {"tooltiptext", "String", ""},
@@ -482,7 +482,7 @@ std::optional<Value> comctl_default(const std::string& class_name,
           {"wrappable", Value{true}},
           {"showtips", Value{true}},
           {"allowcustomize", Value{true}},
-          {"appearance", small(1)},
+          {"appearance", small(0)},
           {"borderstyle", small(0)},
           {"textalignment", small(0)},
           {"buttonheight", Value{0.0F}},
@@ -497,7 +497,7 @@ std::optional<Value> comctl_default(const std::string& class_name,
           {"linestyle", small(0)},
           {"pathseparator", Value{std::string{"\\"}}},
           {"sorted", Value{false}},
-          {"style", small(7)},
+          {"style", small(0)},
           {"checkboxes", Value{false}},
           {"fullrowselect", Value{false}},
           {"hottracking", Value{false}},
@@ -1531,6 +1531,8 @@ using TabRect = wfc::mscomctl::Rect;
     options.width_style =
         static_cast<long>(number_property(control, "tabwidthstyle"));
     options.total_width = number_property(control, "width");
+    options.left = number_property(control, "left");
+    options.top = number_property(control, "top");
     options.multi_row =
         control.values.contains("multirow") &&
         std::holds_alternative<bool>(control.values.at("multirow")) &&
@@ -1538,10 +1540,11 @@ using TabRect = wfc::mscomctl::Rect;
     std::vector<wfc::mscomctl::TabSpec> tabs;
     for (const auto& tab : top_list(control, "tab")) {
         const auto caption = tab->p.at("caption");
-        tabs.push_back(
-            {flag(tab, "visible"), std::holds_alternative<std::string>(caption)
-                                       ? std::get<std::string>(caption).size()
-                                       : std::size_t{0}});
+        const std::string text = std::holds_alternative<std::string>(caption)
+                                     ? std::get<std::string>(caption)
+                                     : std::string{};
+        tabs.push_back({flag(tab, "visible"), text.size(),
+                        wfc::mscomctl::text_pixels(text)});
     }
     return wfc::mscomctl::tab_layout(tabs, options);
 }
@@ -3351,9 +3354,13 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
         const double height = number_property(self, "height");
         const auto rects = tab_layout(self);
         double rows_height = 0.0;
-        for (const auto& rect : rects) {
-            rows_height = std::max(rows_height, rect.top + rect.height);
+        std::set<double> row_tops;  // the rows (rectangles are in the
+        for (const auto& rect : rects) {  // container's coordinates)
+            if (rect.width > 0.0) {
+                row_tops.insert(rect.top);
+            }
         }
+        rows_height = 300.0 * static_cast<double>(row_tops.size());
         if (rows_height == 0.0) {
             rows_height = 300.0;
         }
@@ -3379,6 +3386,7 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
                 failure = NativeFailure{450, "Wrong number of arguments"};
                 return true;
             }
+            // The tab rectangles are in the container's coordinates.
             const double x = as_double(arguments[0].value);
             const double y = as_double(arguments[1].value);
             result = Value{Nothing{}};
@@ -3831,6 +3839,8 @@ ui::CommonSnapshot comctl_snapshot(Interpreter& in, ControlObject& control) {
     snapshot.value = static_cast<long>(number_property(control, "value"));
     snapshot.view = static_cast<long>(number_property(control, "view"));
     snapshot.style = static_cast<long>(number_property(control, "style"));
+    snapshot.text_align =
+        static_cast<long>(number_property(control, "textalignment"));
     snapshot.vertical = number_property(control, "orientation") == 1.0;
     snapshot.smooth = number_property(control, "scrolling") == 1.0;
     snapshot.checkboxes = control_flag(control, "checkboxes");
@@ -3987,6 +3997,22 @@ void comctl_push(Interpreter& in, ControlObject& control) {
         control.comctl->from_host || control.class_key == "commondialog" ||
         control.class_key == "winsock") {
         return;
+    }
+    if (control.class_key == "toolbar") {
+        // A Toolbar fits its height to its rows of buttons (Visual Basic 6
+        // ignores the Height of the form file): the buttons plus the 2 pixel
+        // margin above and below.
+        double bottom = 0.0;
+        for (const auto& rect : button_layout(control)) {
+            bottom = std::max(bottom, rect.top + rect.height);
+        }
+        const double fitted = (std::floor(bottom / 15.0 + 0.5) + 2.0) * 15.0;
+        control.values["height"] = Value{static_cast<float>(fitted)};
+        FormSupport::runtime(in).host->set_bounds(
+            control.window,
+            ui::Rect{number_property(control, "left"),
+                     number_property(control, "top"),
+                     number_property(control, "width"), fitted});
     }
     FormSupport::runtime(in).host->sync_common(control.window,
                                                comctl_snapshot(in, control));
