@@ -120,14 +120,18 @@ struct Row {
 // HitTest: the index of the row under (x, y) in twips, if any.
 [[nodiscard]] inline std::optional<std::size_t> hit_row(
     const std::vector<Row>& rows, const double x, const double y,
-    const double indentation) {
+    const double indentation, const bool lines_or_buttons = true) {
     const double indent = indentation > 0.0 ? indentation : kDefaultIndentation;
     const double row = std::floor(y / kRowHeight);
     if (y < 0.0 || row < 0.0 || static_cast<std::size_t>(row) >= rows.size()) {
         return std::nullopt;
     }
     const auto& found = rows[static_cast<std::size_t>(row)];
-    const double left = static_cast<double>(found.depth + 1) * indent;
+    // Style tvwTextOnly has no room for lines or buttons: the text starts
+    // 3 pixels in (measured under VB6).
+    const double left = lines_or_buttons
+                            ? static_cast<double>(found.depth + 1) * indent
+                            : static_cast<double>(found.depth) * indent + 45.0;
     const double right =
         left + 120.0 + 95.0 * static_cast<double>(found.text_length);
     if (x >= left && x < right) {

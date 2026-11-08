@@ -25,12 +25,12 @@ namespace wfc::mscomctl {
 // How an operation on a collection ended.
 enum class Status {
     ok,
-    type_mismatch,        // an index that is neither a number nor a key
-    element_not_found,    // a key that no item has
-    index_out_of_bounds,  // an index outside the collection
-    key_not_unique,       // a Key another item has
-    panels_full,          // a status bar with sixteen panels
-    image_list_bound,     // an insert in an ImageList bound to a control
+    type_mismatch,            // an index that is neither a number nor a key
+    element_not_found,        // a key that no item has
+    index_out_of_bounds,      // an index outside the collection
+    key_not_unique,           // a Key another item has
+    panels_full,              // a status bar with sixteen panels
+    image_list_bound,         // an insert in an ImageList bound to a control
     image_list_remove_bound,  // a removal from an ImageList bound to a control
 };
 

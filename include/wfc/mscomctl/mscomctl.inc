@@ -463,7 +463,7 @@ std::optional<Value> comctl_default(const std::string& class_name,
           {"multirow", Value{false}},
           {"tabfixedwidth", small(0)},
           {"tabfixedheight", small(0)},
-          {"tabminwidth", Value{Integer{0}}},
+          {"tabminwidth", Value{566.9291F}},
           {"tabwidthstyle", small(0)},
           {"showtips", Value{true}},
           {"hottracking", Value{false}},
@@ -472,9 +472,9 @@ std::optional<Value> comctl_default(const std::string& class_name,
           {"separators", Value{false}},
           {"tabstyle", small(0)}}},
         {"imagelist",
-         {{"imagewidth", small(16)},
-          {"imageheight", small(16)},
-          {"maskcolor", Value{Integer{12632256}}},
+         {{"imagewidth", small(0)},
+          {"imageheight", small(0)},
+          {"maskcolor", Value{Integer{0}}},
           {"usemaskcolor", Value{true}},
           {"backcolor", Value{Integer{-2147483633}}}}},
         {"toolbar",
@@ -492,7 +492,8 @@ std::optional<Value> comctl_default(const std::string& class_name,
           {"simpletext", Value{std::string{}}},
           {"showtips", Value{true}}}},
         {"treeview",
-         {{"indentation", Value{0.0F}},
+         {{"scroll", Value{true}},
+          {"indentation", Value{566.9291F}},
           {"labeledit", small(0)},
           {"linestyle", small(0)},
           {"pathseparator", Value{std::string{"\\"}}},
@@ -1438,7 +1439,8 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
     // Visual Basic 6).
     static const std::set<std::pair<std::string, std::string>> unsigned_rows = {
         {"imagecombo", "indentation"},  {"imagelist", "imageheight"},
-        {"imagelist", "imagewidth"},    {"tabstrip", "tabfixedwidth"},
+        {"imagelist", "imagewidth"},    {"progressbar", "min"},
+        {"progressbar", "controldefault"}, {"tabstrip", "tabfixedwidth"},
         {"tabstrip", "tabfixedheight"}, {"tabstrip", "tabminwidth"},
         {"treeview", "indentation"},    {"slider", "smallchange"},
         {"slider", "largechange"},      {"slider", "tickfrequency"},
@@ -2326,8 +2328,16 @@ void detach_node(ControlObject& control, const ItemPtr& node) {
         std::vector<std::pair<ItemPtr, int>> rows;
         visible_rows(self, nullptr, 0, rows);
         result = Value{Nothing{}};
-        if (const auto hit = wfc::mscomctl::hit_row(
-                tree_rows(rows), x, y, number_property(self, "indentation"))) {
+        // Without lines and buttons (Style 0) the spacing is the 38 pixels
+        // of VB6; with them it keeps the library's own default.
+        const bool decorated =
+            (static_cast<long>(number_property(self, "style")) & 6) != 0;
+        double indentation = number_property(self, "indentation");
+        if (decorated && std::abs(indentation - 566.9291) < 0.001) {
+            indentation = 0.0;
+        }
+        if (const auto hit = wfc::mscomctl::hit_row(tree_rows(rows), x, y,
+                                                    indentation, decorated)) {
             result = node_value(self, rows[*hit].first);
         }
         return true;
@@ -3330,14 +3340,18 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
     if (self.class_key == "toolbar" &&
         (member == "buttonheight" || member == "buttonwidth") &&
         number_property(self, member) == 0.0) {
-        // Not set: the size the buttons have (38 and 36 pixels).
-        result = Value{static_cast<float>(wfc::mscomctl::twips_of_pixels(
-            member == "buttonheight" ? 38.0 : 36.0))};
-        return true;
-    }
-    if (self.class_key == "treeview" && member == "indentation" &&
-        number_property(self, member) == 0.0) {
-        result = Value{566.9291F};  // 1000 himetric, 38 pixels
+        // Not set: the size the buttons have. Without buttons that is the
+        // smallest (22 by 24 pixels), with them the default button.
+        const bool empty = top_list(self, "button").empty();
+        const bool high = member == "buttonheight";
+        const double pixels = high ? (empty ? 22.0 : 38.0) : (empty ? 24.0 : 36.0);
+        if (high && empty) {
+            result = Value{329.9533F};  // as measured, 582 himetric + 0.0005
+            return true;
+        }
+        const double himetric = std::floor(pixels * 2540.0 / 96.0 + 0.5);
+        result = Value{static_cast<float>(himetric * 1440.0 / 2540.0 +
+                                          (empty ? 0.0005 : 0.0))};
         return true;
     }
     if (self.class_key == "treeview" &&
@@ -3439,6 +3453,13 @@ bool comctl_control_put(Interpreter& in, ControlObject& self,
                         const std::string& member,
                         std::vector<CallArgument>& arguments,
                         const Value& value, NativeFailure& failure) {
+    if (self.class_key == "progressbar" && member == "min" &&
+        (std::holds_alternative<double>(value) ||
+         std::holds_alternative<float>(value)) &&
+        as_double(value) < 0.0) {
+        failure = NativeFailure{380, "Invalid property value"};
+        return true;
+    }
     if (ocx_put(in, self, member, arguments, value, failure)) {
         return true;
     }
@@ -3448,6 +3469,40 @@ bool comctl_control_put(Interpreter& in, ControlObject& self,
     }
     if (self.class_key == "imagecombo" &&
         combo_put(in, self, member, value, failure)) {
+        return true;
+    }
+    if ((self.class_key == "tabstrip" &&
+         (member == "tabminwidth" || member == "tabfixedwidth" ||
+          member == "tabfixedheight")) ||
+        (self.class_key == "toolbar" &&
+         (member == "buttonwidth" || member == "buttonheight")) ||
+        (self.class_key == "treeview" && member == "indentation")) {
+        // A size in twips is kept in whole himetric (and a fixed tab size
+        // as a whole number of twips below it); Toolbar sizes also keep the
+        // 0.0005 that VB6 adds.
+        const bool whole = member == "tabfixedwidth" || member == "tabfixedheight";
+        Value converted = value;
+        if (!coerce_property(in, converted, whole ? "Integer" : "Single",
+                             failure)) {
+            return true;
+        }
+        const double twips = as_double(converted);
+        if (twips < 0.0 && self.class_key != "toolbar") {
+            failure = NativeFailure{380, "Invalid property value"};
+            return true;
+        }
+        const double himetric = std::floor(twips * 2540.0 / 1440.0 + 0.5);
+        double stored = static_cast<double>(static_cast<float>(himetric) *
+                                            (1440.0F / 2540.0F));
+        if (self.class_key == "toolbar") {
+            stored += 0.0005;
+        }
+        if (whole) {
+            self.values[member] =
+                Value{static_cast<Int16>(std::floor(stored))};
+        } else {
+            self.values[member] = Value{static_cast<float>(stored)};
+        }
         return true;
     }
     if (self.class_key == "treeview") {

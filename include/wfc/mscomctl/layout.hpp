@@ -163,7 +163,7 @@ struct ButtonOptions {
     };
     std::vector<Rect> rects;
     const double height =
-        options.button_height > 0.0 ? pixels(options.button_height) : 38.0;
+        options.button_height >= 1.0 ? pixels(options.button_height) : 38.0;
     double x = 0.0;
     double y = 2.0;
     for (const auto& button : buttons) {
@@ -178,7 +178,7 @@ struct ButtonOptions {
             width = std::max(pixels(button.width), 8.0);
         } else if (button.width > 0.0) {
             width = pixels(button.width);
-        } else if (options.fixed_width > 0.0) {
+        } else if (options.fixed_width >= 1.0) {
             width = pixels(options.fixed_width);
         } else {
             width = std::max(

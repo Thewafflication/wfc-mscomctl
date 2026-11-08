@@ -21,13 +21,13 @@ visible 4
 collapse1 a
 visible collapsed 4 
 expand1 a
-hit 0 -
-hit 240 e5-
-hit 480 r-
+hit 0 
+hit 240 e5e5
+hit 480 -r
 hit 720 b-
 hit 960 m-
 hit 1200 a-
-indent-
+indent
 hit args 450 
 removed: (no key) e5(relationship without relative) r(Root) -b(alpha) -m(Mike) r2(Second root) r0(Zeroth root) sel=-
  7 

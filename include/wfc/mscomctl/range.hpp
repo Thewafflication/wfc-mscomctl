@@ -40,7 +40,8 @@ public:
     // Min and Max: the range must stay ordered (Min below Max), and Value is
     // brought inside it.
     [[nodiscard]] Outcome set_min(const double minimum) {
-        if (minimum >= max_) {
+        // A ProgressBar does not take a negative Min (a Slider does).
+        if (minimum >= max_ || (!clamps_value_ && minimum < 0.0)) {
             return {false, false};
         }
         min_ = minimum;
