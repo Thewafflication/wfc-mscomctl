@@ -3327,6 +3327,19 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
         toolbar_member(self, member, arguments, result, failure)) {
         return true;
     }
+    if (self.class_key == "toolbar" &&
+        (member == "buttonheight" || member == "buttonwidth") &&
+        number_property(self, member) == 0.0) {
+        // Not set: the size the buttons have (38 and 36 pixels).
+        result = Value{static_cast<float>(wfc::mscomctl::twips_of_pixels(
+            member == "buttonheight" ? 38.0 : 36.0))};
+        return true;
+    }
+    if (self.class_key == "treeview" && member == "indentation" &&
+        number_property(self, member) == 0.0) {
+        result = Value{566.9291F};  // 1000 himetric, 38 pixels
+        return true;
+    }
     if (self.class_key == "treeview" &&
         tree_member(in, self, member, arguments, result, failure)) {
         return true;
@@ -3353,32 +3366,39 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
         const double width = number_property(self, "width");
         const double height = number_property(self, "height");
         const auto rects = tab_layout(self);
-        double rows_height = 0.0;
         std::set<double> row_tops;  // the rows (rectangles are in the
         for (const auto& rect : rects) {  // container's coordinates)
             if (rect.width > 0.0) {
                 row_tops.insert(rect.top);
             }
         }
-        rows_height = 300.0 * static_cast<double>(row_tops.size());
-        if (rows_height == 0.0) {
-            rows_height = 300.0;
-        }
+        // The client area, as VB6 reports it (in the container's
+        // coordinates, in the twips of whole pixels): 4 pixels in at the
+        // sides and bottom, below the rows of tabs (18 pixels each) and 4.
+        const double rows =
+            static_cast<double>(std::max<std::size_t>(row_tops.size(), 1U));
+        const auto pixels_of = [](const double twips) {
+            return std::floor(twips / 15.0 + 0.5);
+        };
         if (member == "clientleft") {
-            result = Value{60.0F};
+            result = Value{static_cast<float>(wfc::mscomctl::twips_of_pixels(
+                std::floor(number_property(self, "left") / 15.0) + 4.0))};
             return true;
         }
         if (member == "clienttop") {
-            result = Value{static_cast<float>(rows_height + 30.0)};
+            result = Value{static_cast<float>(wfc::mscomctl::twips_of_pixels(
+                std::floor(number_property(self, "top") / 15.0) + 4.0 +
+                18.0 * rows))};
             return true;
         }
         if (member == "clientwidth") {
-            result = Value{static_cast<float>(std::max(0.0, width - 120.0))};
+            result = Value{static_cast<float>(wfc::mscomctl::twips_of_pixels(
+                std::max(0.0, pixels_of(width) - 8.0)))};
             return true;
         }
         if (member == "clientheight") {
-            result = Value{
-                static_cast<float>(std::max(0.0, height - rows_height - 90.0))};
+            result = Value{static_cast<float>(wfc::mscomctl::twips_of_pixels(
+                std::max(0.0, pixels_of(height) - 8.0 - 18.0 * rows)))};
             return true;
         }
         if (member == "hittest") {
