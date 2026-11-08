@@ -495,7 +495,7 @@ std::optional<Value> comctl_default(const std::string& class_name,
           {"max", small(0)},
           {"maxfilesize", small(260)},
           {"min", small(0)},
-          {"orientation", small(1)},
+          {"orientation", Value{Integer{1}}},
           {"printerdefault", Value{true}},
           {"topage", small(0)},
           {"hdc", Value{Integer{0}}}}},
@@ -507,7 +507,7 @@ std::optional<Value> comctl_default(const std::string& class_name,
           {"remotehostip", Value{std::string{}}},
           {"remoteport", Value{Integer{0}}},
           {"sockethandle", Value{Integer{0}}},
-          {"state", Value{Integer{0}}}}},
+          {"state", small(0)}}},
         {"progressbar",
          {{"min", Value{0.0F}},
           {"max", Value{100.0F}},
@@ -1561,6 +1561,16 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
         {{"monthview", "monthcolumns"}, {1, 12, 35776}},
         {{"flatscrollbar", "largechange"}, {1, 32767, 380}},
         {{"flatscrollbar", "smallchange"}, {1, 32767, 380}},
+        {{"commondialog", "frompage"}, {0, 32767, 380}},
+        {{"commondialog", "topage"}, {0, 32767, 380}},
+        {{"commondialog", "min"}, {0, 32767, 380}},
+        {{"commondialog", "max"}, {0, 32767, 380}},
+        {{"commondialog", "filterindex"}, {0, 32767, 380}},
+        {{"commondialog", "copies"}, {1, 32767, 380}},
+        {{"commondialog", "maxfilesize"}, {1, 32767, 380}},
+        {{"winsock", "protocol"}, {0, 1, 380}},
+        {{"winsock", "localport"}, {0, 65535, 380}},
+        {{"winsock", "remoteport"}, {0, 65535, 40014}},
     };
     if (const auto found = bounds.find({self.class_key, member});
         found != bounds.end() && is_number(value)) {
@@ -1572,6 +1582,17 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
                                            : "Invalid number of months"};
             return true;
         }
+    }
+    if (self.class_key == "commondialog" && member == "orientation" &&
+        is_number(value)) {
+        // PrinterOrientationConstants: 1 or 2, kept as the Long VB6 returns.
+        const double wanted = std::nearbyint(as_double(value));
+        if (wanted < 1.0 || wanted > 2.0) {
+            failure = NativeFailure{380, "Invalid property value"};
+            return true;
+        }
+        self.values["orientation"] = Value{static_cast<Integer>(wanted)};
+        return true;
     }
     if (self.class_key == "updown" && value == Value{true} &&
         (member == "autobuddy" || member == "syncbuddy")) {
