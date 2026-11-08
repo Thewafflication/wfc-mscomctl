@@ -344,6 +344,80 @@ namespace {
 
 std::optional<Value> comctl_default(const std::string& class_name,
                                     const std::string& property) {
+    // What Visual Basic 6 answers for a control of MSCOMCT2.OCX read from a
+    // form file without the property (evidence/reference/control-probe-2).
+    static const std::map<std::string, std::map<std::string, Value>> measured = {
+        {"animation",
+         {{"autoplay", Value{false}},
+          {"backstyle", Value{Integer{0}}},
+          {"center", Value{false}},
+          {"enabled", Value{true}},
+          {"backcolor", Value{Integer{-2147483633}}},
+          {"oledropmode", Value{Integer{0}}}}},
+        {"updown",
+         {{"value", Value{Integer{0}}},
+          {"acceleration", small(0)},
+          {"alignment", Value{Integer{1}}},
+          {"autobuddy", Value{false}},
+          {"increment", Value{Integer{1}}},
+          {"max", Value{Integer{10}}},
+          {"min", Value{Integer{0}}},
+          {"orientation", Value{Integer{0}}},
+          {"syncbuddy", Value{false}},
+          {"wrap", Value{false}},
+          {"enabled", Value{true}},
+          {"oledropmode", Value{Integer{0}}}}},
+        {"monthview",
+         {{"appearance", Value{Integer{1}}},
+          {"backcolor", Value{Integer{-2147483633}}},
+          {"borderstyle", Value{Integer{0}}},
+          {"dayofweek", Value{Integer{7}}},
+          {"enabled", Value{true}},
+          {"forecolor", Value{Integer{-2147483630}}},
+          {"maxselcount", small(7)},
+          {"monthbackcolor", Value{Integer{-2147483643}}},
+          {"monthcolumns", small(1)},
+          {"monthrows", small(1)},
+          {"mousepointer", Value{Integer{0}}},
+          {"multiselect", Value{false}},
+          {"oledropmode", Value{Integer{0}}},
+          {"scrollrate", small(0)},
+          {"showtoday", Value{true}},
+          {"showweeknumbers", Value{false}},
+          {"startofweek", Value{Integer{1}}},
+          {"titlebackcolor", Value{Integer{-2147483633}}},
+          {"titleforecolor", Value{Integer{-2147483630}}},
+          {"trailingforecolor", Value{Integer{-2147483631}}}}},
+        {"dtpicker",
+         {{"format", Value{Integer{1}}},
+          {"calendarbackcolor", Value{Integer{-2147483643}}},
+          {"calendarforecolor", Value{Integer{-2147483630}}},
+          {"calendartitlebackcolor", Value{Integer{-2147483633}}},
+          {"calendartitleforecolor", Value{Integer{-2147483630}}},
+          {"calendartrailingforecolor", Value{Integer{-2147483631}}},
+          {"checkbox", Value{false}},
+          {"customformat", Value{std::string{}}},
+          {"enabled", Value{true}},
+          {"mousepointer", Value{Integer{0}}},
+          {"oledropmode", Value{Integer{0}}},
+          {"updown", Value{false}}}},
+        {"flatscrollbar",
+         {{"appearance", Value{Integer{1}}},
+          {"arrows", Value{Integer{0}}},
+          {"enabled", Value{true}},
+          {"largechange", small(1)},
+          {"min", small(0)},
+          {"max", small(32767)},
+          {"mousepointer", Value{Integer{0}}},
+          {"orientation", Value{Integer{1}}},
+          {"smallchange", small(1)},
+          {"value", small(0)}}}};
+    if (const auto known = measured.find(class_name); known != measured.end()) {
+        if (const auto value = known->second.find(property);
+            value != known->second.end()) {
+            return value->second;
+        }
+    }
     static const std::map<std::string, std::map<std::string, Value>> table = {
         {"animation",
          {{"autoplay", Value{false}},
@@ -1469,6 +1543,57 @@ bool ComctlSupport::put(Interpreter& in, ControlObject& self,
         as_double(value) < 0.0) {
         failure = NativeFailure{380, "Invalid property value"};
         return true;
+    }
+    // Numbers of MSCOMCT2.OCX that only take a range, and the error that
+    // VB6 raises outside it (measured, evidence/reference/control-probe-2).
+    struct Bounds {
+        double low;
+        double high;
+        long error;
+    };
+    static const std::map<std::pair<std::string, std::string>, Bounds> bounds = {
+        {{"updown", "acceleration"}, {0, 32767, 380}},
+        {{"updown", "increment"}, {0, 2147483647, 380}},
+        {{"monthview", "scrollrate"}, {0, 32767, 380}},
+        {{"monthview", "day"}, {1, 31, 380}},
+        {{"monthview", "week"}, {1, 53, 380}},
+        {{"monthview", "monthrows"}, {1, 12, 35776}},
+        {{"monthview", "monthcolumns"}, {1, 12, 35776}},
+        {{"flatscrollbar", "largechange"}, {1, 32767, 380}},
+        {{"flatscrollbar", "smallchange"}, {1, 32767, 380}},
+    };
+    if (const auto found = bounds.find({self.class_key, member});
+        found != bounds.end() && is_number(value)) {
+        const double wanted = std::nearbyint(as_double(value));
+        if (wanted < found->second.low || wanted > found->second.high) {
+            failure = NativeFailure{
+                static_cast<int>(found->second.error),
+                found->second.error == 380 ? "Invalid property value"
+                                           : "Invalid number of months"};
+            return true;
+        }
+    }
+    if (self.class_key == "updown" && value == Value{true} &&
+        (member == "autobuddy" || member == "syncbuddy")) {
+        // Both need a buddy control (VB6 gives these two errors).
+        failure = member == "autobuddy"
+                      ? NativeFailure{35756, "No buddy control"}
+                      : NativeFailure{35754, "No buddy control"};
+        return true;
+    }
+    if (self.class_key == "monthview" && member == "year" && is_number(value)) {
+        // A two-digit year is read in the century of the window (measured: 0
+        // is 2000, 5 is 2005, 99 is 1999); a negative year is refused.
+        double wanted = std::nearbyint(as_double(value));
+        if (wanted < 0.0) {
+            failure = NativeFailure{380, "Invalid property value"};
+            return true;
+        }
+        if (wanted < 100.0) {
+            wanted += wanted < 30.0 ? 2000.0 : 1900.0;
+        }
+        return comctl_control_put(in, self, member, arguments,
+                                  Value{static_cast<Int16>(wanted)}, failure);
     }
     return comctl_control_put(in, self, member, arguments, value, failure);
 }
