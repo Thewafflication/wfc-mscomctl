@@ -3349,9 +3349,8 @@ bool comctl_control_get(Interpreter& in, ControlObject& self,
             result = Value{329.9533F};  // as measured, 582 himetric + 0.0005
             return true;
         }
-        const double himetric = std::floor(pixels * 2540.0 / 96.0 + 0.5);
-        result = Value{static_cast<float>(himetric * 1440.0 / 2540.0 +
-                                          (empty ? 0.0005 : 0.0))};
+        result = Value{static_cast<float>(
+            wfc::mscomctl::twips_of_pixels(pixels) + (empty ? 0.0005 : 0.0))};
         return true;
     }
     if (self.class_key == "treeview" &&
