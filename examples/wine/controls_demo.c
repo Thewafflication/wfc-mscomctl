@@ -2,9 +2,9 @@
  * WFC wraps (TabStrip, Toolbar, ProgressBar, Slider, TreeView, ListView,
  * StatusBar). CI builds it with Wine's winegcc and photographs it under Wine
  * on Linux for the README. */
-#include <windows.h>
 #include <commctrl.h>
 #include <string.h>
+#include <windows.h>
 
 static HWND make(const char* class_name, DWORD style, int x, int y, int w,
                  int h, HWND parent) {
@@ -73,8 +73,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command,
         buttons[i].iBitmap = I_IMAGENONE;
         buttons[i].fsState = TBSTATE_ENABLED;
         buttons[i].fsStyle = BTNS_BUTTON | BTNS_AUTOSIZE | BTNS_SHOWTEXT;
-        buttons[i].iString = (INT_PTR)SendMessageA(control, TB_ADDSTRINGA, 0,
-                                                   (LPARAM)label[i]);
+        buttons[i].iString =
+            (INT_PTR)SendMessageA(control, TB_ADDSTRINGA, 0, (LPARAM)label[i]);
     }
     SendMessageA(control, TB_ADDBUTTONSA, 3, (LPARAM)buttons);
 
@@ -83,8 +83,9 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command,
     control = make(TRACKBAR_CLASSA, TBS_AUTOTICKS, 230, 75, 200, 36, window);
     SendMessageA(control, TBM_SETPOS, TRUE, 4);
 
-    control = make(WC_TREEVIEWA, TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT,
-                   10, 170, 190, 150, window);
+    control =
+        make(WC_TREEVIEWA, TVS_HASLINES | TVS_HASBUTTONS | TVS_LINESATROOT, 10,
+             170, 190, 150, window);
     ZeroMemory(&node, sizeof(node));
     node.hParent = TVI_ROOT;
     node.hInsertAfter = TVI_LAST;
@@ -120,8 +121,8 @@ int WINAPI WinMain(HINSTANCE instance, HINSTANCE previous, LPSTR command,
     control = CreateWindowExA(0, STATUSCLASSNAMEA, "", WS_CHILD | WS_VISIBLE, 0,
                               0, 0, 0, window, NULL, instance, NULL);
     SendMessageA(control, SB_SETPARTS, 2, (LPARAM)parts);
-    SendMessageA(control, SB_SETTEXTA, 0, (LPARAM)"Ready");
-    SendMessageA(control, SB_SETTEXTA, 1, (LPARAM)"3 items");
+    SendMessageA(control, SB_SETTEXTA, 0, (LPARAM) "Ready");
+    SendMessageA(control, SB_SETTEXTA, 1, (LPARAM) "3 items");
 
     while (GetMessageA(&message, NULL, 0, 0) > 0) {
         TranslateMessage(&message);
