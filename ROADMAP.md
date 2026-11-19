@@ -126,8 +126,9 @@ item is present, tested and passing in CI; an unchecked one is planned.
 - [x] WSP 1.4.0 as a submodule (`wsp/`), adoption record in
       [docs/WSP-ADOPTION.md](docs/WSP-ADOPTION.md).
 - [x] WSP hardening flags (WSP-SEC-0015) in the standalone build.
-- [ ] 80-column source style (WSP-STYLE-0001) for the library sources; the
-      generated tables are exempt. CI reports the findings meanwhile.
+- [x] 80-column source style (WSP-STYLE-0001), clang-format, gersemi and the
+      lint stage (`scripts/Invoke-Lint.ps1`, `.pre-commit-config.yaml`).
+- [ ] The lint stage in CI.
 - [x] The requirements are here (`requirements/`) with their test cases (`tests/corpus/`); WFC runs the corpus cases.
 - [ ] A traceability check (`wsp/tools/Test-Traceability.ps1`) in CI.
 - [ ] Windows code signing and the version resource review.
