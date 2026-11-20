@@ -6,6 +6,12 @@
 # wfcmscomctl.dll so a program can load it at run time instead. The version is
 # the one in VERSION and is stamped into the DLL's version resource.
 #
+# Test names: standalone the CTest names are TC-NNNN-<name>. When another
+# project (WFC) adds this directory, every name gets the prefix in
+# WFC_MSCOMCTL_TEST_PREFIX, "wfc-mscomctl-" by default, so that names from
+# different libraries never collide (wfc-mscomctl-TC-NNNN-<name>). The including
+# project may set the variable (also to empty) before add_subdirectory.
+#
 # Parent project variables used when present: WFC_OCX_SHARED (the default of
 # WFC_MSCOMCTL_SHARED) and the functions wfc_enable_strict_warnings and
 # wsp_enable_hardening.
@@ -32,6 +38,16 @@ if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
     AND NOT WFC_WINELIB
   )
     include("${CMAKE_CURRENT_SOURCE_DIR}/wsp/tools/cmake/WspBuild.cmake")
+  endif()
+endif()
+
+if(NOT DEFINED WFC_MSCOMCTL_TEST_PREFIX)
+  # Not PROJECT_IS_TOP_LEVEL: this directory declares no project when it is
+  # added, so that variable would still describe the parent's project.
+  if(CMAKE_SOURCE_DIR STREQUAL CMAKE_CURRENT_SOURCE_DIR)
+    set(WFC_MSCOMCTL_TEST_PREFIX "")
+  else()
+    set(WFC_MSCOMCTL_TEST_PREFIX "wfc-mscomctl-")
   endif()
 endif()
 
@@ -141,9 +157,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_tables_test)
   endif()
-  add_test(NAME TC-0001-tables COMMAND mscomctl_tables_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0001-tables
+    COMMAND mscomctl_tables_test
+  )
   set_tests_properties(
-    TC-0001-tables
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0001-tables
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -163,9 +182,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_range_test)
   endif()
-  add_test(NAME TC-0002-range COMMAND mscomctl_range_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0002-range
+    COMMAND mscomctl_range_test
+  )
   set_tests_properties(
-    TC-0002-range
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0002-range
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -185,9 +207,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_layout_test)
   endif()
-  add_test(NAME TC-0003-layout COMMAND mscomctl_layout_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0003-layout
+    COMMAND mscomctl_layout_test
+  )
   set_tests_properties(
-    TC-0003-layout
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0003-layout
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -207,9 +232,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_items_test)
   endif()
-  add_test(NAME TC-0004-items COMMAND mscomctl_items_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0004-items
+    COMMAND mscomctl_items_test
+  )
   set_tests_properties(
-    TC-0004-items
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0004-items
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -229,9 +257,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_toolbar_test)
   endif()
-  add_test(NAME TC-0005-toolbar COMMAND mscomctl_toolbar_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0005-toolbar
+    COMMAND mscomctl_toolbar_test
+  )
   set_tests_properties(
-    TC-0005-toolbar
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0005-toolbar
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -251,9 +282,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_tree_test)
   endif()
-  add_test(NAME TC-0006-tree COMMAND mscomctl_tree_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0006-tree
+    COMMAND mscomctl_tree_test
+  )
   set_tests_properties(
-    TC-0006-tree
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0006-tree
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -273,9 +307,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_list_test)
   endif()
-  add_test(NAME TC-0007-list COMMAND mscomctl_list_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0007-list
+    COMMAND mscomctl_list_test
+  )
   set_tests_properties(
-    TC-0007-list
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0007-list
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -295,9 +332,12 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_images_test)
   endif()
-  add_test(NAME TC-0008-images COMMAND mscomctl_images_test)
+  add_test(
+    NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0008-images
+    COMMAND mscomctl_images_test
+  )
   set_tests_properties(
-    TC-0008-images
+    ${WFC_MSCOMCTL_TEST_PREFIX}TC-0008-images
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -315,13 +355,13 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
       wsp_enable_hardening(mscomctl_dll_test)
     endif()
     add_test(
-      NAME TC-0009-dll
+      NAME ${WFC_MSCOMCTL_TEST_PREFIX}TC-0009-dll
       COMMAND
         mscomctl_dll_test "$<TARGET_FILE:wfc_mscomctl>"
         "${WFC_MSCOMCTL_VERSION}" "${WFC_LIB_TARGET}"
     )
     set_tests_properties(
-      TC-0009-dll
+      ${WFC_MSCOMCTL_TEST_PREFIX}TC-0009-dll
       PROPERTIES
         LABELS "integration;mp-0010;mscomctl"
         RESOURCE_LOCK registry

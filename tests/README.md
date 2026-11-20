@@ -36,7 +36,10 @@ the library's own; `docs/id-map.md` lists the identifiers they replace.
 
 CTest runs `TC-0001` to `TC-0009` from this repository
 (`ctest --test-dir out/build -C Debug`; `TC-0009` only in the shared build on
-Windows). [WFC](https://github.com/Thewafflication/wfc) runs `TC-0010` to
+Windows). When WFC adds the library (the `lib/wfc-mscomctl` submodule) the
+CTest names carry the prefix `wfc-mscomctl-` (`WFC_MSCOMCTL_TEST_PREFIX`),
+for example `wfc-mscomctl-TC-0007-list`; the identifiers do not change.
+[WFC](https://github.com/Thewafflication/wfc) runs `TC-0010` to
 `TC-0024`: it needs its interpreter and compiler for the corpus programs and
 the example, and its evidence folder for the table check.
 
