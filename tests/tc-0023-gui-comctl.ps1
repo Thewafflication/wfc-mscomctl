@@ -24,8 +24,9 @@ $wfcPath = & (Join-Path $PSScriptRoot 'Resolve-Wfc.ps1') -Wfc $Wfc
 $project = Join-Path $root 'examples/common-controls/gui-comctl.vbp'
 $directory = Join-Path $root $ScreenshotDirectory
 New-Item -ItemType Directory -Force -Path $directory | Out-Null
-$output = (& $wfcPath --interpret $project --gui --screenshots $directory |
-        Out-String)
+# Debug.Print goes to standard error.
+$output = (& $wfcPath --interpret $project --gui --screenshots $directory `
+        2>&1 | Out-String)
 if ($LASTEXITCODE -ne 0) {
     throw "wfc exited with $LASTEXITCODE."
 }

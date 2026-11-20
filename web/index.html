@@ -5,26 +5,38 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>wfc-mscomctl in WebAssembly</title>
 <style>
-  :root { color-scheme: light dark; --bg: #f4f5f7; --card: #fff;
-    --ink: #1b1f24; --muted: #5b6573; --line: #d8dde4; --accent: #0b5fff; }
-  @media (prefers-color-scheme: dark) { :root { --bg: #14171c;
-    --card: #1d2229; --ink: #e8ebf0; --muted: #98a2b0;
-    --line: #2d3540; --accent: #6ea0ff; } }
-  body { margin: 0; padding: 24px 16px; background: var(--bg);
-    color: var(--ink); font: 15px/1.45 system-ui, sans-serif; }
-  main { max-width: 900px; margin: 0 auto; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  p.sub { margin: 0 0 18px; color: var(--muted); }
-  .cards { display: grid; gap: 12px;
-    grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); }
-  .card { background: var(--card); border: 1px solid var(--line);
-    border-radius: 8px; padding: 12px 14px; }
-  .card h2 { font-size: 16px; margin: 0 0 2px; }
-  .counts { color: var(--muted); font-size: 13px; margin-bottom: 8px; }
-  code { font: 12.5px ui-monospace, Consolas, monospace; }
-  .list { color: var(--accent); }
-  .more { color: var(--muted); }
-  footer { margin-top: 18px; color: var(--muted); font-size: 13px; }
+  /* The look of the WFC games: dark navy, raised panels, teal and amber. */
+  :root {
+    --back: #11141f; --panel: #1b2033; --edge: #404a6b;
+    --text: #e8ebf5; --muted: #98a0be; --teal: #3dd6c6; --amber: #ffb454;
+    --font: "Segoe UI", system-ui, -apple-system, "Helvetica Neue", Arial,
+      sans-serif;
+    --mono: "Cascadia Mono", Consolas, ui-monospace, "DejaVu Sans Mono",
+      monospace;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; padding: 32px 24px 28px; background: var(--back);
+    color: var(--text); font: 15px/1.5 var(--font); }
+  main { max-width: 912px; margin: 0 auto; }
+  h1 { font-size: 26px; line-height: 1.2; margin: 0 0 6px;
+    font-weight: 700; }
+  p.sub { margin: 0 0 24px; color: var(--muted); }
+  p.sub b { color: var(--amber); font-weight: 600; }
+  .cards { display: grid; gap: 18px;
+    grid-template-columns: repeat(auto-fill, minmax(272px, 1fr)); }
+  .card { background: var(--panel); border: 1px solid var(--edge);
+    border-radius: 2px; padding: 14px 16px 16px;
+    box-shadow: 2px 3px 0 #080a0f, 5px 7px 0 #0d1017; }
+  .card h2 { font-size: 16px; line-height: 1.3; margin: 0 0 2px;
+    color: var(--teal); font-weight: 700; }
+  .counts { color: var(--muted); font-size: 13px; margin-bottom: 10px; }
+  .names { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 12px; }
+  .names code { font: 12px/1.6 var(--mono); color: var(--text);
+    background: #252b45; padding: 0 7px; border-radius: 2px; }
+  .names code.more { background: none; color: var(--muted); padding: 0; }
+  .events { font: 12.5px/1.5 var(--mono); color: var(--muted); margin: 0; }
+  .events b { color: var(--amber); font-weight: 400; }
+  footer { margin-top: 28px; color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
@@ -42,35 +54,54 @@
     const num = (name, ...args) =>
       m.ccall(name, 'number', types(args), args);
     const text = (name, ...args) => m.UTF8ToString(num(name, ...args));
+    // The table lists a property once for reading and once for writing;
+    // show each name once.
+    const unique = (count, name, limit) => {
+      const seen = [];
+      for (let i = 0; i < count && seen.length < limit + 1; i++) {
+        const value = name(i);
+        if (!seen.includes(value)) { seen.push(value); }
+      }
+      return seen;
+    };
     document.getElementById('title').textContent =
       text('library_name') + ' in WebAssembly';
-    document.getElementById('sub').textContent =
-      'version ' + text('library_version') + ', targets ' +
-      text('library_target');
+    document.getElementById('sub').innerHTML =
+      'Version <b></b>, targets <b></b>';
+    const bold = document.querySelectorAll('#sub b');
+    bold[0].textContent = text('library_version');
+    bold[1].textContent = text('library_target');
     const cards = document.getElementById('cards');
     for (let c = 0; c < num('class_count'); c++) {
       const members = num('member_count', c), events = num('event_count', c);
-      const names = [];
-      for (let i = 0; i < Math.min(members, 8); i++) {
-        names.push(text('member_name', c, i));
-      }
-      const handlers = [];
-      for (let i = 0; i < Math.min(events, 4); i++) {
-        handlers.push(text('event_name', c, i));
-      }
+      const names = unique(members, (i) => text('member_name', c, i), 8);
+      const handlers = unique(events, (i) => text('event_name', c, i), 3);
       const card = document.createElement('div');
       card.className = 'card';
       card.innerHTML = '<h2></h2><div class="counts"></div>' +
-        '<code class="list"></code>' +
-        '<div><code class="more"></code></div>';
+        '<div class="names"></div><p class="events"></p>';
       card.querySelector('h2').textContent = text('class_name', c);
       card.querySelector('.counts').textContent =
         members + ' members, ' + events + ' events';
-      card.querySelector('.list').textContent =
-        names.join(', ') + (members > 8 ? ', ...' : '');
-      card.querySelector('.more').textContent =
-        events ? 'events: ' + handlers.join(', ') +
-          (events > 4 ? ', ...' : '') : '';
+      const list = card.querySelector('.names');
+      names.slice(0, 8).forEach((name) => {
+        const item = document.createElement('code');
+        item.textContent = name;
+        list.appendChild(item);
+      });
+      if (names.length > 8) {
+        const more = document.createElement('code');
+        more.className = 'more';
+        more.textContent = '...';
+        list.appendChild(more);
+      }
+      const line = card.querySelector('.events');
+      if (events) {
+        line.innerHTML = '<b>events</b> ';
+        const shown = handlers.slice(0, 3).join(', ');
+        line.appendChild(document.createTextNode(
+          shown + (handlers.length > 3 ? ', ...' : '')));
+      }
       cards.appendChild(card);
     }
     const ready = document.createElement('span');

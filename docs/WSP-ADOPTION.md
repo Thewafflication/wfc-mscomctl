@@ -109,6 +109,19 @@ for `WFC0293`), `architecture/adr-0010-comctl-item-model.md` and the root
 library identifiers). WFC's own requirements with the same numbers (for
 example its `REQ-0037`, the PictureBox contract) are unrelated.
 
+## Screenshots and demo windows
+
+The README images and the demo programs behind them follow the house look of
+the WFC games (navy `#11141F`, panels `#1B2033` with a thin edge and a
+two-step shadow, teal `#3DD6C6`, amber `#FFB454`, light text, Segoe UI).
+
+| Image | Source | State |
+| --- | --- | --- |
+| `docs/images/common-controls.png` | `examples/common-controls/gui-comctl.frm`, run by WFC (`TC-0023`) | Redone: panels, captions, icons and sensible contents; regenerated |
+| `docs/images/webassembly.png` | `web/index.html` | Page restyled (members listed once, not once per read and write); image is a local Chromium render of the page with the real table data; CI's `capture_web.py` makes the next one |
+| `docs/images/linux-controls.png` | `examples/wine/controls_demo.c` under Wine in CI | Demo redone in the same look and checked as a Windows build; the image still shows the old demo until the CI artifact replaces it |
+| `docs/images/linux-winelib-*.png` | `scripts/render_terminal.py` on the CI output | Unchanged and stale (old CTest names); the script is a shared copy and WFC checks that it is identical in every library |
+
 ## Open items
 
 | Item | Disposition |

@@ -19,13 +19,16 @@ the parent default is `WFC_OCX_SHARED`).
 
 ![The WFC common controls example (`examples/common-controls`).](docs/images/common-controls.png)
 
-The WFC common controls example (`examples/common-controls`). Run it with [WFC](https://github.com/Thewafflication/wfc):
+The WFC common controls example (`examples/common-controls`), in the look of
+the WFC games: a dark navy form with raised panels around the nine controls.
+Run it with [WFC](https://github.com/Thewafflication/wfc):
 
 ```
 wfc run examples/common-controls/gui-comctl.vbp --gui
 ```
 
-The images are made with `wfc run ... --gui --screenshots <dir>`.
+The image is made with `wfc run ... --gui --screenshots <dir>` (test case
+`TC-0023`, `tests/tc-0023-gui-comctl.ps1`).
 
 ### Linux (Wine)
 
@@ -34,7 +37,9 @@ The images are made with `wfc run ... --gui --screenshots <dir>`.
 The controls the library wraps (tab strip, toolbar, progress bar, slider, tree
 view, list view, status bar), shown by `examples/wine/controls_demo.c` built
 with Wine's `winegcc` and photographed in a virtual display by the CI job
-(`scripts/linux_screenshot.sh`).
+(`scripts/linux_screenshot.sh`). The demo uses the same colors and layout as
+the example above. The committed image is the one of the earlier plain demo
+until the CI job's `linux-controls` artifact replaces it.
 
 ### Linux (Winelib)
 
@@ -44,14 +49,17 @@ The CI session on Linux x64: the library is built with Wine's `wineg++` and its
 test runs. The same session for [x86](docs/images/linux-winelib-x86.png) and
 [arm64](docs/images/linux-winelib-arm64.png) (arm64 builds only; Wine hangs
 there). These images are rendered from the real CI output by
-`scripts/render_terminal.py`.
+`scripts/render_terminal.py`. They show the CTest names from before the
+`TC-NNNN` identifiers (`TC-MP0010-mscomctl-tables`) until CI renders them
+again.
 
 ### WebAssembly
 
 ![The wfc-mscomctl member table in a web page, compiled with Emscripten](docs/images/webassembly.png)
 
 The member table compiled to WebAssembly and listed by a page
-(`web/index.html`), captured in Chromium by `scripts/capture_web.py` in CI.
+(`web/index.html`), captured in Chromium by `scripts/capture_web.py` in CI
+(the committed image is a local Chromium render of the same page and table).
 
 ## Roadmap, compatibility and platforms
 
