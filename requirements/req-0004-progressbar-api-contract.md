@@ -90,7 +90,9 @@ compatibility and provides a stable boundary for later behavioral probes.
 
 **Method:** Inspection
 
-**References:** `evidence/reference/mscomctl-2.0-type-library.json`; test case TBD
+**References:** `TC-0001`, `TC-0024`
+
+The member table is checked by `TC-0001` (the classes, and that every member has a name and a kind) and by `TC-0024` (the table is the one generated from the type-library evidence). The evidence inventory itself (`evidence/reference/mscomctl-2.0-type-library.json`) is kept in WFC.
 
 Inspect the WFC type library and compare every listed member name, DISPID,
 access mode, signature, and event against this requirement. Runtime semantics

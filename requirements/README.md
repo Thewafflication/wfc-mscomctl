@@ -31,22 +31,30 @@ reference probes and separately verifiable requirements.
 
 ## Behavioral Requirements
 
-The [behavioral requirement set](behavior/README.md) defines the first 27
-observable control behaviors derived from the installed Microsoft help. These
-requirements cover all nine control classes and are allocated to planned
-matching-number VB6 reference and WFC conformance tests.
+The [behavioral requirement set](behavior/README.md) (`REQ-0017` to
+`REQ-0043`) defines 27 observable control behaviors derived from the installed
+Microsoft help. These requirements cover all nine control classes and are
+verified by the test cases of this library (`tests/`, see
+[Identifiers](#identifiers)); a VB6 reference probe for each is still planned.
 
 ## Object model
 
-- [REQ-0296 — Collections, value objects and the native controls](req-0296-comctl-object-model.md)
-- [REQ-0297 — TabStrip and StatusBar behavior](req-0297-comctl-tabstrip-statusbar.md)
-- [REQ-0298 — Toolbar behavior](req-0298-comctl-toolbar.md)
-- [REQ-0299 — TreeView behavior](req-0299-comctl-treeview.md)
-- [REQ-0300 — ListView behavior](req-0300-comctl-listview.md)
-- [REQ-0301 — ImageCombo behavior](req-0301-comctl-imagecombo.md)
-- [REQ-0302 — Persisted state in form files](req-0302-comctl-persistence.md)
+- [REQ-0010 — Collections, value objects and the native controls](req-0010-comctl-object-model.md)
+- [REQ-0011 — TabStrip and StatusBar behavior](req-0011-comctl-tabstrip-statusbar.md)
+- [REQ-0012 — Toolbar behavior](req-0012-comctl-toolbar.md)
+- [REQ-0013 — TreeView behavior](req-0013-comctl-treeview.md)
+- [REQ-0014 — ListView behavior](req-0014-comctl-listview.md)
+- [REQ-0015 — ImageCombo behavior](req-0015-comctl-imagecombo.md)
+- [REQ-0016 — Persisted state in form files](req-0016-comctl-persistence.md)
 
-> The `evidence/` paths and the `TC-*` test case names in these requirements
-> refer to [WFC](https://github.com/Thewafflication/wfc), which keeps the
-> reference evidence and runs the test cases (the corpus programs are in
-> `tests/corpus` of this repository).
+> The `evidence/` paths in these requirements refer to
+> [WFC](https://github.com/Thewafflication/wfc), which keeps the reference
+> evidence. The test cases are in `tests/` of this repository; WFC runs the
+> corpus programs among them.
+
+## Identifiers
+
+Requirements are `REQ-NNNN` and test cases `TC-NNNN`, numbered from 0001 in
+this library's own namespace (`wsp/style/artifact-identifiers.md`). The
+numbers the requirements and tests carried in the WFC repository are in
+[docs/id-map.md](../docs/id-map.md). Do not renumber or reuse an identifier.
