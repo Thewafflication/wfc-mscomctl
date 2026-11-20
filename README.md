@@ -78,6 +78,10 @@ cmake --build out/build --config Debug
 ctest --test-dir out/build -C Debug
 ```
 
+The test cases (`TC-NNNN`) and the requirements they verify are listed in
+[tests/README.md](tests/README.md); `scripts/Invoke-Traceability.ps1` runs the
+WSP traceability check.
+
 Under Winelib: `-DCMAKE_TOOLCHAIN_FILE=cmake/winelib.cmake
 -DWFC_WARNINGS_AS_ERRORS=OFF`. For WebAssembly use `emcmake cmake`.
 

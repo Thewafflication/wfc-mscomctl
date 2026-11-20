@@ -54,6 +54,12 @@ and `python -m gersemi -i --definitions cmake wsp/tools/cmake -- <file>`.
 ## Requirements and test cases
 
 Requirements are in `requirements/` (`REQ-NNNN`, one file each, named
-`req-NNNN-<slug>.md`). Test cases are named `TC-NNNN` after the requirement
-they verify; the corpus programs and the CTest unit tests are their
-implementations. Keep identifiers stable: never renumber or reuse one.
+`req-NNNN-<slug>.md`). Test cases are `TC-NNNN`, numbered from 0001 in this
+library's own namespace: each has a specification `tests/tc-NNNN-<name>.tex`
+(WSP test-case template, naming the requirements it verifies) and a runner
+`tests/tc-NNNN-<name>.ps1`; the CTest names are `TC-NNNN-<name>` and the
+corpus programs, the example and the table check (run by WFC) are the
+implementations of the others (`tests/README.md`). Keep identifiers stable:
+never renumber or reuse one. `docs/id-map.md` lists the numbers these
+artifacts had in the WFC repository. Check traceability with
+`pwsh -NoProfile -File scripts/Invoke-Traceability.ps1`.

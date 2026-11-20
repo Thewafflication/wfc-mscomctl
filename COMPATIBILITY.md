@@ -21,7 +21,8 @@ Generated from the type library of MSCOMCTL.OCX 2.0 retained in the WFC evidence
 9 class(es), 421 members and 118 events are in
 the table. *Table* means the member exists with the Microsoft name, kind, type
 and dispatch id. *Behaviour* is implemented by the WFC evaluator and covered by
-its corpus and GUI tests (`TC-MP0006-*`, `TC-MP0010-*`); per-member behaviour
+its corpus and GUI tests (`TC-0001` to `TC-0024`, listed in
+[tests/README.md](tests/README.md)); per-member behaviour
 status is tracked in WFC until the behaviour moves into this library (see the
 [roadmap](ROADMAP.md), 0.7).
 
@@ -41,10 +42,10 @@ status is tracked in WFC until the behaviour moves into this library (see the
 
 ## How it is checked
 
-- A C program (`tests/mscomctl_dll_test.c`) loads the DLL, checks its COM entry
+- A C program (`tests/mscomctl_dll_test.c`, `TC-0009`) loads the DLL, checks its COM entry
   points and version resource, and registers and unregisters it.
-- A table test (`tests/mscomctl_tables_test.cpp`) checks the classes and the
+- A table test (`tests/mscomctl_tables_test.cpp`, `TC-0001`) checks the classes and the
   member kinds.
 - WFC compares the table with the type-library evidence
-  (`TC-MP0006-comctl-tables-current` for the generated tables) and runs its
+  (`TC-0024` for the generated tables) and runs its
   corpus programs against the controls.

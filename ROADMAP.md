@@ -129,6 +129,12 @@ item is present, tested and passing in CI; an unchecked one is planned.
 - [x] 80-column source style (WSP-STYLE-0001), clang-format, gersemi and the
       lint stage (`scripts/Invoke-Lint.ps1`, `.pre-commit-config.yaml`).
 - [ ] The lint stage in CI.
-- [x] The requirements are here (`requirements/`) with their test cases (`tests/corpus/`); WFC runs the corpus cases.
-- [ ] A traceability check (`wsp/tools/Test-Traceability.ps1`) in CI.
+- [x] The requirements are here (`requirements/`, `REQ-NNNN` in the
+      library's own namespace) with their test cases (`tests/`, `TC-NNNN`,
+      a specification and a runner each); WFC runs the corpus cases.
+- [x] A traceability check (`scripts/Invoke-Traceability.ps1`, from
+      `wsp/tools/Test-Traceability.ps1`); one requirement, `REQ-0026`
+      (ProgressBar orientation and scrolling), still has no test case.
+- [ ] The traceability check in CI and in the commit gate (needs a test
+      case for `REQ-0026`).
 - [ ] Windows code signing and the version resource review.

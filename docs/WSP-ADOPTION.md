@@ -48,9 +48,9 @@ same commit. Status: Done, Partial, Open or Decision (the owner decides).
 | Commit gate | WSP-CHECK-0001 to 0008 | Partial | `.pre-commit-config.yaml` runs lint, then `scripts/Invoke-BuildTest.ps1` (x64 debug); run `pre-commit install` once per clone. No progress window or single-instance lock (WFC-specific) |
 | Pinned tools | WSP-CHECK-0007 | Done | `requirements-dev.txt` (pre-commit, gersemi, clang-format); PSScriptAnalyzer 1.25.0 is checked by the lint script |
 | CI runs the lint | WSP-CHECK-0008 | Open | Add a lint job to `.github/workflows/ci.yml` (it builds and tests on x86, x64 and ARM64 only) |
-| Requirements with stable IDs | WSP-REQM-0001 to 0010, `wsp/requirements` | Partial | `requirements/` has `REQ-0001` to `REQ-0036` and `REQ-0296` to `REQ-0302`, all but the last group Proposed; see Decision 1 |
-| Test cases with stable IDs | WSP-TEST-0001 to 0005 | Partial | CTest names are `TC-MP0010-*` (milestone-based, not requirement-based); behavior requirements name planned `TC-00NN` cases that live in WFC |
-| Traceability check | WSP-REQM, WSP-TEST-0011, `wsp/tools/Test-Traceability.ps1` | Open | The tool expects `tc-NNNN-*.tex` specifications and `tc-NNNN*.ps1` runners; this library has neither (see Decision 2) |
+| Requirements with stable IDs | WSP-REQM-0001 to 0010, `wsp/requirements` | Done | `requirements/` has `REQ-0001` to `REQ-0043` in the library's own namespace (decision 1); the old numbers are in `docs/id-map.md` |
+| Test cases with stable IDs | WSP-TEST-0001 to 0005 | Done | `TC-0001` to `TC-0024`, each with a `tests/tc-NNNN-*.tex` specification and a `tests/tc-NNNN-*.ps1` runner; CTest names are `TC-NNNN-<name>` (decision 2) |
+| Traceability check | WSP-REQM, WSP-TEST-0011, `wsp/tools/Test-Traceability.ps1` | Partial | `scripts/Invoke-Traceability.ps1` passes for 42 of 43 requirements; `REQ-0026` (ProgressBar orientation and scrolling) has no test case yet, so the check fails and is not in the gate or CI until it does |
 | Test evidence and reports | WSP-TEST-0006 to 0018 | Open | Deferred, as in WFC |
 | Version resource | WSP-WINRES-0001 to 0012 | Partial | `version.rc.in` exists; no `Test-PeHardening` or resource verification in the gate yet |
 | Hardening flags | WSP-SEC-0015 | Done | `wsp_enable_hardening` in the standalone build |
@@ -62,14 +62,14 @@ same commit. Status: Done, Partial, Open or Decision (the owner decides).
 
 ## Decisions for the owner
 
-1. **Requirement numbering.** The library mixes ranges: `REQ-0001` to `0036`
+1. **Requirement numbering (decided).** The library mixes ranges: `REQ-0001` to `0036`
    restart at 1 (collisions are possible with WFC's own `REQ-` numbers, for
    example WFC has `req-0140` and the library has `req-0296`), while
    `REQ-0296` to `0302` were taken from WFC's sequence. Choose between one
    global namespace (WFC allocates the numbers; the library keeps what it
    has) and a per-library prefix such as `REQ-COMCTL-0001` (WSP-REQM
    requires stable, unique identifiers).
-2. **Test-case layout.** Either adopt the `Test-Traceability.ps1` layout
+2. **Test-case layout (decided).** Either adopt the `Test-Traceability.ps1` layout
    (`tests/tc-NNNN-*.tex` plus `tc-NNNN.ps1` runners, which suits a library
    with its own test suite) or keep the test cases in WFC and run the
    traceability check from WFC across the libraries.
@@ -79,11 +79,41 @@ same commit. Status: Done, Partial, Open or Decision (the owner decides).
 4. **CI.** Add the lint job (and later the traceability check) to
    `ci.yml`, and enable the pre-commit hook in the owner's clone.
 
+## Identifier migration
+
+Decisions 1 and 2 were taken as: `REQ-NNNN` and `TC-NNNN` from 0001 in the
+library's own namespace, with the `tc-NNNN` layout of the traceability tool.
+The requirements are `REQ-0001` to `REQ-0009` (API contracts, unchanged),
+`REQ-0010` to `REQ-0016` (the former `REQ-0296` to `REQ-0302`) and
+`REQ-0017` to `REQ-0043` (the former behavioral `REQ-0010` to `REQ-0036`):
+43 in all. There are 24 test cases: `TC-0001` to `TC-0009` (CTest, from the
+former `TC-MP0010-mscomctl-*`), `TC-0010` to `TC-0022` (the 13 corpus
+programs, run by WFC), `TC-0023` (the example in a window) and `TC-0024`
+(the table check against the evidence, run by WFC). All 24 have a LaTeX
+specification (24 created) and a PowerShell runner; the corpus runners
+(`tests/Invoke-CorpusCase.ps1`) need a `wfc.exe` and were run against WFC's
+installed debug build, all passing. `docs/id-map.md` maps every old
+identifier and title to the new one and notes that the planned `TC-0010` to
+`TC-0036` of the old behavioral requirements never existed.
+
+WFC documents that cite the old identifiers (not edited from here):
+`planning/MP-0001-foundation-and-feasibility.md`,
+`planning/MP-0006-closeout.md`, `planning/MP-0006-coverage.md`,
+`planning/MP-0006-mscomctllib.md`, `planning/work-log-mp-0006.md`,
+`planning/MP-0010-distribution-and-libraries.md`, `planning/roadmap-1.0.md`,
+`requirements/README.md`, `requirements/language/diagnostics.md` (`REQ-0302`
+for `WFC0293`), `architecture/adr-0010-comctl-item-model.md` and the root
+`CMakeLists.txt` (the `TC-MP0006-gui-comctl` and
+`TC-MP0006-comctl-tables-current` tests, and the corpus registration
+`TC-MP0002-corpus-<file>`, which keeps the old names until WFC adopts the
+library identifiers). WFC's own requirements with the same numbers (for
+example its `REQ-0037`, the PictureBox contract) are unrelated.
+
 ## Open items
 
 | Item | Disposition |
 | --- | --- |
 | 80-column style (WSP-STYLE-0001) | Met: `scripts/Invoke-Lint.ps1` passes; CI does not run it yet |
 | Requirements | Adopted: `requirements/` (moved from WFC) |
-| Traceability check | Planned (roadmap, WSP track) |
+| Traceability check | `scripts/Invoke-Traceability.ps1`; fails only for `REQ-0026`, which needs a ProgressBar rendering test; then add to the gate and CI |
 | Signing | Planned for the first release |
