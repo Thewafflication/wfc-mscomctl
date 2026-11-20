@@ -28,11 +28,23 @@ the reference evidence the requirements cite.
 
 `.pre-commit-config.yaml` is the gate (`pre-commit install` once):
 
+0. `scripts/Start-CommitGate.ps1` (hook `wfc-gate-start`): takes the
+   machine-wide lock `wfc-commit-gate.lock` in the temp folder, shared with
+   WFC and every other WFC library, so only one gate runs at a time; a
+   second commit while a gate runs is refused (wait for it). It then opens
+   the always-on-top test progress window (`scripts/Show-TestProgress.ps1`),
+   which follows `out/test-progress.log`: the lint and build stage lines and
+   the `12/377 Test  #12: name ... Passed` lines that
+   `scripts/Invoke-Tests.ps1` copies from ctest. Do not suppress or replace
+   the window, and do not edit sources or start a second build or `ctest`
+   in this checkout while a gate runs.
 1. `scripts/Invoke-Lint.ps1`: WSP physical style
    (`wsp/tools/Test-SourceStyle.ps1`, 80 columns), clang-format 22.1.3,
    gersemi 0.29.2, PSScriptAnalyzer 1.25.0, YAML syntax, and pre-commit
    validation. Changes no files.
-2. `scripts/Invoke-BuildTest.ps1`: x64 debug configure, build and `ctest`.
+2. `scripts/Invoke-Build.ps1` (x64 debug configure and build), then
+   `scripts/Invoke-Tests.ps1` (`ctest`, logged for the window).
+   `scripts/Invoke-BuildTest.ps1` runs both for a manual check.
 
 Install the pinned tools with
 `python -m pip install --requirement requirements-dev.txt`. Never skip the

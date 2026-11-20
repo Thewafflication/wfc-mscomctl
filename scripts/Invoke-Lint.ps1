@@ -25,7 +25,7 @@ Import-Module (Join-Path $PSScriptRoot 'LibChecks.psm1') -Force
 $root = Split-Path -Parent $PSScriptRoot
 Push-Location $root
 try {
-    Write-Stage '[lint] WSP physical source style'
+    Write-Stage '[lint] WSP physical source style' -Reset
     $testFiles = @(Get-ChildItem -File tests |
             ForEach-Object { "tests/$($_.Name)" })
     $styleScope = @(

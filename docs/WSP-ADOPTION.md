@@ -45,7 +45,7 @@ same commit. Status: Done, Partial, Open or Decision (the owner decides).
 | Editor and line-ending defaults | WSP-STYLE-0002 to 0004 | Done | `.editorconfig` added; `.gitattributes` already fixes LF |
 | 80-column physical style | WSP-STYLE-0001, `wsp/tools/Test-SourceStyle.ps1` | Done | 23 findings in 6 files fixed by hand or clang-format; 46 owned files pass |
 | Lint stage | WSP-CHECK-0001, `wsp/processes/commit-checks.md` | Done | `scripts/Invoke-Lint.ps1` (style, clang-format, gersemi, PSScriptAnalyzer, YAML, pre-commit) |
-| Commit gate | WSP-CHECK-0001 to 0008 | Partial | `.pre-commit-config.yaml` runs lint, then `scripts/Invoke-BuildTest.ps1` (x64 debug); run `pre-commit install` once per clone. No progress window or single-instance lock (WFC-specific) |
+| Commit gate | WSP-CHECK-0001 to 0008 | Done | `.pre-commit-config.yaml` runs `wfc-gate-start` (machine-wide lock `wfc-commit-gate.lock` shared with WFC, test progress window), lint, build and tests (x64 debug); run `pre-commit install` once per clone. `scripts/Start-CommitGate.ps1` and `scripts/Show-TestProgress.ps1` are identical copies of WFC's |
 | Pinned tools | WSP-CHECK-0007 | Done | `requirements-dev.txt` (pre-commit, gersemi, clang-format); PSScriptAnalyzer 1.25.0 is checked by the lint script |
 | CI runs the lint | WSP-CHECK-0008 | Open | Add a lint job to `.github/workflows/ci.yml` (it builds and tests on x86, x64 and ARM64 only) |
 | Requirements with stable IDs | WSP-REQM-0001 to 0010, `wsp/requirements` | Done | `requirements/` has `REQ-0001` to `REQ-0043` in the library's own namespace (decision 1); the old numbers are in `docs/id-map.md` |
