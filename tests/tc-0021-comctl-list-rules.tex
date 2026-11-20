@@ -1,0 +1,139 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0021
+}
+
+\def\TCTitle{%
+  ListView rules
+}
+
+\def\TCPurpose{%
+  Verify the ListView rules through two lists: sorting, SubItems limits,
+  errors, the layout of every view, hit testing, FindItem, selection with and
+  without MultiSelect, and the events.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0014, REQ-0031, REQ-0032, REQ-0033, REQ-0034, REQ-0041
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/225-comctl-list-rules.frm} and
+  \texttt{tests/corpus/225-comctl-list-rules.vbp}; the form code and the
+  controls of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0021-comctl-list-rules.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{225-comctl-list-rules.vbp},
+  \texttt{225-comctl-list-rules.frm}, \texttt{225-comctl-list-rules.expected},
+  \texttt{225-comctl-list-rules.debug}, \texttt{225-comctl-list-rules.ui}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 225-comctl-list-rules.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{225-comctl-list-rules.ui} is the only input; the
+  case does not read the registry or other files except the picture named in
+  the form.
+}
+
+\def\TCInputData{%
+  A form with two ListViews; five items \texttt{k1} to \texttt{k5} with sub
+  items and a tag; the script clicks items and columns and edits labels.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Print the order as added, sorted, descending, by sub item 1, by sub
+      item 5 and by the item again.
+    \item Write a sub item past the end; write index -1; read index 4 and the
+      index \texttt{a}; set \texttt{View} to -1 and 4; write read-only
+      properties; select a non-item and an item of the other list; add an item
+      without a key.
+    \item Print the rectangle of the first and fourth item in each view; print
+      it again without column headers.
+    \item Hit-test in Report view row by row and at the right edge of the
+      first column; call \texttt{FindItem} by text, start item, partial text,
+      tag and sub item, without arguments and with a missing start item.
+    \item Select items with MultiSelect, clear one, set the selected item and
+      set it to \texttt{Nothing}; do the same in the second list, which keeps
+      one selection.
+    \item Run the script.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Sorting folds case and is stable: \texttt{k2 k3 k1 k4 k5} ascending
+      and \texttt{k5 k4 k1 k2 k3} descending; a sort key past the columns
+      keeps the order.
+    \item A write to the sub item -1 or a read of index 4 is 35600, a text
+      index is 450, \texttt{View} -1 or 4 is 380, read-only writes are 383, a
+      non-item or another list's item is 13, an item without a key is
+      accepted.
+    \item The report, list, small icon and icon views give the rectangles
+      printed in \texttt{.debug}; without headers the first row moves to the
+      top.
+    \item Hit tests return \texttt{k3}, \texttt{k2}, \texttt{k1}, \texttt{k4},
+      \texttt{k5} for rows 250 twips apart and nothing below, \texttt{k3} at x
+      1699 and nothing at 1701; \texttt{FindItem} returns the keys printed, a
+      missing start item is 35601 and \texttt{FindItem} without arguments is
+      450.
+    \item Selection follows MultiSelect: two items selected, one cleared, the
+      set item alone, none for \texttt{Nothing}; the second list keeps one
+      selected item (\texttt{y}).
+    \item Events: \texttt{itemclick} with \texttt{click}, \texttt{dblclick},
+      \texttt{column} for each column clicked and the label edit pairs
+      \texttt{before} and \texttt{after} (the edit of \texttt{k4} is cancelled
+      by the form).
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{225-comctl-list-rules.expected} to standard output, and writes
+      the exact Immediate-window text of \texttt{225-comctl-list-rules.debug}
+      to standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

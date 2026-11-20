@@ -1,0 +1,126 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0014
+}
+
+\def\TCTitle{%
+  ListView items and columns
+}
+
+\def\TCPurpose{%
+  Verify the ListView column headers, items, sub items, sorting, FindItem, hit
+  testing, selection, errors and events.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0014, REQ-0032, REQ-0033, REQ-0034, REQ-0041
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/192-comctl-listview.frm} and
+  \texttt{tests/corpus/192-comctl-listview.vbp}; the form code and the
+  controls of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0014-comctl-listview.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{192-comctl-listview.vbp},
+  \texttt{192-comctl-listview.frm}, \texttt{192-comctl-listview.expected},
+  \texttt{192-comctl-listview.debug}, \texttt{192-comctl-listview.ui}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 192-comctl-listview.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{192-comctl-listview.ui} is the only input; the
+  case does not read the registry or other files except the picture named in
+  the form.
+}
+
+\def\TCInputData{%
+  A form with a ListView in Report view with check boxes; three columns
+  (\texttt{name}, \texttt{size}, \texttt{kind}); items \texttt{Banana},
+  \texttt{Apple}, \texttt{Carrot}; the script clicks, checks, clicks a column
+  and edits.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Add three columns and print the count, \texttt{Left} values,
+      position, sub item index and alignment.
+    \item Add items with sub items by \texttt{SubItems} and by
+      \texttt{ListSubItems.Add} and print the counts, texts, tool tip and type
+      name.
+    \item Sort by the item, descending, and by a sub item.
+    \item Print \texttt{FindItem} by text, partial text, missing text and sub
+      item; \texttt{HitTest} and \texttt{GetFirstVisible}; select an item.
+    \item Set \texttt{View} to 7, read a sub item past the end and add a
+      duplicate key.
+    \item Run the script.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Three columns with the \texttt{Left} values 0 and 2400 and the right
+      alignment of \texttt{size} (1); three items and a sub item text
+      \texttt{7}.
+    \item Sorting gives \texttt{Apple Banana Carrot}, then \texttt{Carrot
+      Apple} for the descending order and \texttt{Carrot Banana} for the sub
+      item key.
+    \item \texttt{FindItem} returns the right keys and \texttt{Nothing} for
+      the unknown text.
+    \item \texttt{View = 7} is 380, a sub item past the end is 35600 and a
+      duplicate key is 35602.
+    \item Events: \texttt{itemclick c}, \texttt{itemcheck cTrue},
+      \texttt{column size}, \texttt{renamed Carrots}.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{192-comctl-listview.expected} to standard output, and writes the
+      exact Immediate-window text of \texttt{192-comctl-listview.debug} to
+      standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

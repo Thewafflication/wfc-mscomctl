@@ -1,0 +1,113 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0009
+}
+
+\def\TCTitle{%
+  Library DLL: exports, version and registration
+}
+
+\def\TCPurpose{%
+  Verify the shared library \texttt{wfcmscomctl.dll} as any program uses it:
+  the COM entry points, the version resource, the registration round trip, and
+  the controls it creates through COM (ranges, collections, events, user
+  input).
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0025
+}
+
+\def\TCDesignRef{%
+  Not applicable; the rules are in the named header.
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/mscomctl\_dll\_test.c}, \texttt{tests/dll\_check.h},
+  \texttt{src/registration.cpp}, \texttt{src/com\_behaviour.hpp},
+  \texttt{src/com\_collections.hpp}, \texttt{src/com\_input.hpp} and the
+  runner \texttt{tests/tc-0009-dll.ps1}
+}
+
+\def\TCTestTechnique{%
+  Black-box integration testing through the COM interfaces (ISO/IEC/IEEE
+  29119-4 specification-based techniques).
+}
+
+\def\TCPreconditions{%
+  Windows; the library built with \texttt{WFC\_MSCOMCTL\_SHARED=ON} so that
+  \texttt{wfcmscomctl.dll} and the C test \texttt{mscomctl\_dll\_test} exist.
+  The current user's registry may be written (\texttt{HKCU}).
+}
+
+\def\TCEnvironment{%
+  Windows x86, x64 or ARM64; CTest runs the test as \texttt{TC-0009-dll} with
+  resource lock \texttt{registry} and treats exit code 77 as skipped.
+}
+
+\def\TCAssumptions{%
+  Neither the library nor the Microsoft class ids are already registered;
+  otherwise the test leaves the registry alone and exits with 77.
+}
+
+\def\TCInputData{%
+  The path of the DLL, its version (\texttt{VERSION}) and its target
+  (\texttt{TARGET}) as arguments; the class ids of the nine controls.
+}
+
+\def\TCInitialState{%
+  No registration of the library exists in the registry of the current user.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Load the DLL and look for the four COM entry points; compare the
+      version resource with the version and target given.
+    \item Register the library under WFC's ProgIDs and class ids, check every
+      class, unregister it, and repeat the round trip under the Microsoft
+      ProgIDs.
+    \item Create a Slider and a ProgressBar through COM and check the
+      defaults, error 380 for a Value outside the range and the Value brought
+      inside a narrower range.
+    \item Create TabStrip, StatusBar and Toolbar, ListView, ImageList,
+      TreeView and ImageCombo objects and exercise their collections (Add,
+      Count, Item, Remove, For Each), the library errors, the events and the
+      input of the user (\texttt{WfcInput}).
+    \item Create the TabStrip once more and call a property and a method.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Every entry point exists and the version resource matches the
+      version and target.
+    \item Registration and unregistration succeed for both sets of names and
+      leave the registry as it was.
+    \item The controls answer as the rules of the library say: the numbered
+      errors (380, 35600, 35602, 35609) appear where expected, the first tab
+      is selected, collections keep order and the events and input arrive in
+      order.
+    \item The program exits with code 0 (or 77 when it skipped).
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The registry of the current user is as before the test.
+}
+
+\TCTemplate
+
+\end{document}

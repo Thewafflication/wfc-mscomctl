@@ -1,0 +1,124 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0015
+}
+
+\def\TCTitle{%
+  ImageCombo items and text
+}
+
+\def\TCPurpose{%
+  Verify the ImageCombo items, selection, text, selected text, errors, events
+  and the editing lock.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0015, REQ-0040, REQ-0042, REQ-0043
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/193-comctl-imagecombo.frm} and
+  \texttt{tests/corpus/193-comctl-imagecombo.vbp}; the form code and the
+  controls of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0015-comctl-imagecombo.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{193-comctl-imagecombo.vbp},
+  \texttt{193-comctl-imagecombo.frm}, \texttt{193-comctl-imagecombo.expected},
+  \texttt{193-comctl-imagecombo.debug}, \texttt{193-comctl-imagecombo.ui}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 193-comctl-imagecombo.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{193-comctl-imagecombo.ui} is the only input; the
+  case does not read the registry or other files except the picture named in
+  the form.
+}
+
+\def\TCInputData{%
+  A form with an ImageCombo; items \texttt{red}, \texttt{green},
+  \texttt{blue}; the script drops the list down, selects \texttt{red} and
+  types a text after the control is locked.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Add three items (one with an index and an indentation) and print the
+      count, key, image numbers, indentation and type name.
+    \item Print the selection and text, select \texttt{green} with
+      \texttt{Set}, set the text to \texttt{Red} and to \texttt{custom}, and
+      set \texttt{SelStart}, \texttt{SelLength} and \texttt{SelText}.
+    \item Remove the selected item, add a duplicate key, read an index of 7
+      and set \texttt{Locked = True}.
+    \item Run the script: drop the list down, select \texttt{red}, type
+      \texttt{typed}.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Three items; the first is \texttt{blue}; \texttt{red} is at index 2
+      with image 1 and selected image 2; \texttt{blue} has an indentation of
+      2; the type name is \texttt{ComboItem}.
+    \item Nothing is selected at first and the text is empty; the text
+      \texttt{Red} selects \texttt{red}; \texttt{custom} selects nothing; the
+      selected text of \texttt{cXYom} is as printed.
+    \item After the removal nothing is selected and two items remain; a
+      duplicate key is 35602; index 7 is 35600.
+    \item Events: \texttt{click Green} and \texttt{change Green} when the form
+      selects \texttt{green}, \texttt{change Red}, \texttt{change custom},
+      \texttt{change cXYom}; from the script \texttt{dropdown}, \texttt{click
+      Red} and \texttt{change Red}; the typed text raises no event because the
+      control is locked.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{193-comctl-imagecombo.expected} to standard output, and writes
+      the exact Immediate-window text of \texttt{193-comctl-imagecombo.debug}
+      to standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

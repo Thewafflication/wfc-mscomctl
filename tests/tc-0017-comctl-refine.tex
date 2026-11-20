@@ -1,0 +1,130 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0017
+}
+
+\def\TCTitle{%
+  Refinements of several controls
+}
+
+\def\TCPurpose{%
+  Verify details of the common controls: the status bar panel limit, Slider
+  selection ranges, ImageList ExtractIcon and binding, toolbar customization,
+  tab pre-selection cancellation, and TreeView and ListView label editing and
+  cancellation.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0019, REQ-0021, REQ-0022, REQ-0023, REQ-0029, REQ-0034, REQ-0035,
+  REQ-0036, REQ-0037, REQ-0038, REQ-0039, REQ-0041
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/195-comctl-refine.frm} and
+  \texttt{tests/corpus/195-comctl-refine.vbp}; the form code and the controls
+  of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0017-comctl-refine.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{195-comctl-refine.vbp},
+  \texttt{195-comctl-refine.frm}, \texttt{195-comctl-refine.expected},
+  \texttt{195-comctl-refine.debug}, \texttt{195-comctl-refine.ui},
+  \texttt{195-comctl-refine.red.bmp}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 195-comctl-refine.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{195-comctl-refine.ui} is the only input; the case
+  does not read the registry or other files except the picture named in the
+  form.
+}
+
+\def\TCInputData{%
+  A form with a TabStrip, StatusBar, Slider, ImageList, Toolbar, TreeView and
+  ListView; the script selects a tab, sets the Slider value, double-clicks the
+  toolbar, clicks and edits tree nodes, types letters, and edits a list item.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Add 16 panels and a seventeenth; print the count and error.
+    \item Set Slider \texttt{SelectRange} False and True, \texttt{SelStart}
+      and \texttt{SelLength} including 99 and -1, \texttt{ClearSel}.
+    \item Add images, call \texttt{ExtractIcon}, bind the list to the toolbar,
+      add at the end and in front, remove an image.
+    \item Print \texttt{AllowCustomize}, save, hide and restore a toolbar
+      button (registry key \texttt{Software\textbackslash{}WFC Tests}),
+      \texttt{EnsureVisible} with \texttt{Scroll} True and False.
+    \item Run the script and print the events.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Sixteen panels and error 35609 for the seventeenth.
+    \item Without \texttt{SelectRange} \texttt{SelStart} follows Value and
+      \texttt{SelLength} stays 0; with it the range is 2 and 5; a length of 99
+      or -1 is 380; \texttt{ClearSel} gives a start equal to Value and length
+      0.
+    \item \texttt{ExtractIcon} is a \texttt{Picture}; a bound list still grows
+      at the end (count 3) but an insert in front and a removal are 35615.
+    \item \texttt{AllowCustomize} is True; restore brings the button back;
+      \texttt{EnsureVisible} prints \texttt{False} with \texttt{Scroll} on and
+      off.
+    \item Events: a cancelled \texttt{before} followed by \texttt{click a}
+      (the selection stays), \texttt{scroll}, \texttt{sclick}, \texttt{schange
+      12}, \texttt{tdbl}, \texttt{customize}, the tree's \texttt{tclick},
+      \texttt{t-before} and \texttt{t-after} (with the new text and with an
+      empty text) and the list's \texttt{l-before} (cancelled).
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{195-comctl-refine.expected} to standard output, and writes the
+      exact Immediate-window text of \texttt{195-comctl-refine.debug} to
+      standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

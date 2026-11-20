@@ -1,0 +1,96 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0023
+}
+
+\def\TCTitle{%
+  Common controls example in a window
+}
+
+\def\TCPurpose{%
+  Show all nine common controls in a Win32 window, driven by the same actions
+  as the scripted input, and keep screenshots as evidence.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0010
+}
+
+\def\TCDesignRef{%
+  Not applicable; the rules are in the named header.
+}
+
+\def\TCFeatureRef{%
+  \texttt{examples/common-controls/gui-comctl.vbp} and
+  \texttt{gui-comctl.frm}; the Win32 host of WFC and the runner
+  \texttt{tests/tc-0023-gui-comctl.ps1}
+}
+
+\def\TCTestTechnique{%
+  Demonstration with screenshot evidence (ISO/IEC/IEEE 29119-4
+  experience-based testing).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc.exe} of the x64 Debug build and an interactive Windows desktop
+  session (the test holds the desktop lock \texttt{desktop}).
+}
+
+\def\TCEnvironment{%
+  Windows x64 with a desktop; WFC runs \texttt{wfc --interpret gui-comctl.vbp
+  --gui --screenshots \textless{}dir\textgreater{}}.
+}
+
+\def\TCAssumptions{%
+  The desktop is not locked and no other test uses it at the same time.
+}
+
+\def\TCInputData{%
+  The form \texttt{gui-comctl.frm} with the picture
+  \texttt{gui-comctl.red.bmp}; no other input.
+}
+
+\def\TCInitialState{%
+  No other window of the program is open.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Run \texttt{wfc --interpret examples/common-controls/gui-comctl.vbp
+      --gui --screenshots \textless{}dir\textgreater{}}.
+    \item Let the program build the window and take its screenshots.
+    \item Let the program close the window.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item The window shows the tab strip, toolbar, status bar, progress bar,
+      slider, tree view, list view and image combo.
+    \item The screenshots are written to the folder given.
+    \item The program writes \texttt{closing} and exits with code 0 within 60
+      seconds.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The window is closed; the screenshot folder holds the images (the README
+  image \texttt{docs/images/common-controls.png} is one of them).
+}
+
+\TCTemplate
+
+\end{document}

@@ -1,0 +1,128 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0013
+}
+
+\def\TCTitle{%
+  TreeView nodes
+}
+
+\def\TCPurpose{%
+  Verify the TreeView node model: relationships, navigation properties, paths,
+  visibility, selection, removal, errors, sorting and the events, including
+  label editing.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0013, REQ-0027, REQ-0028, REQ-0029, REQ-0030
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/191-comctl-treeview.frm} and
+  \texttt{tests/corpus/191-comctl-treeview.vbp}; the form code and the
+  controls of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0013-comctl-treeview.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{191-comctl-treeview.vbp},
+  \texttt{191-comctl-treeview.frm}, \texttt{191-comctl-treeview.expected},
+  \texttt{191-comctl-treeview.debug}, \texttt{191-comctl-treeview.ui}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 191-comctl-treeview.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{191-comctl-treeview.ui} is the only input; the
+  case does not read the registry or other files except the picture named in
+  the form.
+}
+
+\def\TCInputData{%
+  A form with a TreeView with check boxes; nodes \texttt{root}, \texttt{b},
+  \texttt{c}, \texttt{d} and four more added by each relationship; the script
+  clicks, navigates, checks and edits.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Add nodes as child, next, previous, first and last and print the
+      counts and the links (\texttt{Child}, \texttt{Next}, \texttt{Parent},
+      \texttt{Root}, \texttt{FullPath}, \texttt{Previous},
+      \texttt{FirstSibling}, \texttt{LastSibling}).
+    \item Print \texttt{EnsureVisible}, \texttt{Expanded},
+      \texttt{GetVisibleCount} and the selection; change
+      \texttt{PathSeparator}; \texttt{HitTest} a node and the right edge.
+    \item Remove a node with its children; add a duplicate key and a missing
+      relative; sort the tree and print the first level.
+    \item Run the script: click, keys down, left, up, home, right, collapse,
+      check a node and edit labels (one rejected).
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Eight nodes in the tree; the links, \texttt{Root} and
+      \texttt{FullPath}
+      (\texttt{Root\textbackslash{}Charlie\textbackslash{}Delta}) as printed
+      in \texttt{.debug}; \texttt{a.Parent} and \texttt{d.Child} are
+      \texttt{Nothing}.
+    \item The path with \texttt{/} is \texttt{Root/Charlie/Delta};
+      \texttt{HitTest} finds \texttt{root}; after removal six nodes are left
+      and the selection is cleared.
+    \item A duplicate key is 35602 and an unknown relative is 35601.
+    \item Sorting gives \texttt{Before C}, \texttt{Between}, \texttt{Bravo},
+      \texttt{First}, \texttt{Last}.
+    \item Events: \texttt{nodeclick}, \texttt{collapse}, \texttt{expand},
+      \texttt{check}, \texttt{before edit}, \texttt{after edit} with the new
+      text.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{191-comctl-treeview.expected} to standard output, and writes the
+      exact Immediate-window text of \texttt{191-comctl-treeview.debug} to
+      standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

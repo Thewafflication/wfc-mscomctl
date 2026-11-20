@@ -1,0 +1,125 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0022
+}
+
+\def\TCTitle{%
+  ImageList and ImageCombo rules
+}
+
+\def\TCPurpose{%
+  Verify the ImageList and ImageCombo rules through the form: adding images by
+  index and key, the list size, errors, Overlay, ExtractIcon, binding, the
+  Indentation and images of items, Text matching, selected text and the
+  collection errors.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0015, REQ-0035, REQ-0036, REQ-0040, REQ-0042
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/226-comctl-image-rules.frm} and
+  \texttt{tests/corpus/226-comctl-image-rules.vbp}; the form code and the
+  controls of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0022-comctl-image-rules.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{226-comctl-image-rules.vbp},
+  \texttt{226-comctl-image-rules.frm},
+  \texttt{226-comctl-image-rules.expected},
+  \texttt{226-comctl-image-rules.debug},
+  \texttt{226-comctl-image-rules.red.bmp}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 226-comctl-image-rules.vbp}.
+}
+
+\def\TCAssumptions{%
+  No scripted input is used; the case reads only its own files.
+}
+
+\def\TCInputData{%
+  A form with a TabStrip, two ImageLists and two ImageCombos; the picture
+  \texttt{226-comctl-image-rules.red.bmp}.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Add images with keys, without a picture, with a duplicate key and
+      indexes 0, 9 and text, and print each error.
+    \item Print the sizes before and after the first image, set the width
+      after an add, call \texttt{Overlay} by key, by index and with wrong
+      arguments, and \texttt{ExtractIcon}.
+    \item Remove and clear an unbound list, bind the list and repeat the
+      removal, insert and append.
+    \item Set tab images by index and key; set item indentation and images;
+      set the combo \texttt{Text} to match items; read and replace the
+      selected text; use out-of-range combo indexes and duplicate keys.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item A picture is required (481); a duplicate key is 35602; index 0 and 9
+      are 35600; a text index is 13; the size is set by the first image and
+      cannot be set after an add (35614).
+    \item \texttt{Overlay} takes two images, gives a picture, 450 for one
+      argument, 35601 for a missing key and 35600 for an index of 0 or past
+      the end; \texttt{ExtractIcon} returns a \texttt{Picture}.
+    \item An unbound list allows removal and clearing; a bound list gives
+      35615 for removal, clearing, an insert in front or in the middle, and
+      still appends.
+    \item Combo text matching ignores case and the first item wins; a foreign
+      item is 13; selected text cuts and replaces as in \texttt{.debug}; combo
+      index 0 and 9 are 35600, a duplicate key 35602.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{226-comctl-image-rules.expected} to standard output, and writes
+      the exact Immediate-window text of \texttt{226-comctl-image-rules.debug}
+      to standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

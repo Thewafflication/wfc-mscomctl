@@ -1,0 +1,124 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0010
+}
+
+\def\TCTitle{%
+  Basic controls: ProgressBar, Slider, ImageList
+}
+
+\def\TCPurpose{%
+  Verify that a form hosts the native ProgressBar, Slider and ImageList, with
+  the numeric rules, the collection rules and the errors of the common
+  controls.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0010, REQ-0025, REQ-0035, REQ-0037, REQ-0038, REQ-0039
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/188-comctl-basic.frm} and
+  \texttt{tests/corpus/188-comctl-basic.vbp}; the form code and the controls
+  of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0010-comctl-basic.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{188-comctl-basic.vbp},
+  \texttt{188-comctl-basic.frm}, \texttt{188-comctl-basic.expected},
+  \texttt{188-comctl-basic.debug}, \texttt{188-comctl-basic.ui},
+  \texttt{188-comctl-basic.red.bmp}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 188-comctl-basic.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{188-comctl-basic.ui} is the only input; the case
+  does not read the registry or other files except the picture named in the
+  form.
+}
+
+\def\TCInputData{%
+  A form with a ProgressBar (Max 50, Value 10), a Slider (Max 20) and an
+  ImageList; the picture \texttt{188-comctl-basic.red.bmp}; the script sets
+  the Slider value to 3.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Print Min, Max, Value, Left and Width of the ProgressBar; set Value
+      25; set Value 99 and Min 60 and print the error numbers.
+    \item Print the Slider's Min, Max, Value, LargeChange and
+      \texttt{GetNumTicks}; set Value 7 and Max 5 and print Value and Max.
+    \item Add images to the ImageList with and without index and key, print
+      the count, key, index, size and type name; add a duplicate key, read an
+      unknown key, set \texttt{ImageWidth} after an add, remove one image and
+      enumerate the rest with \texttt{For Each}.
+    \item Run the script: set the Slider value to 3.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item The ProgressBar starts as 0, 50, 10, 120 twips, 2400; a Value of 25
+      is kept; the Value 99 and the Min 60 each give error 380.
+    \item The Slider starts as 0, 20, 0, 5, 21; Value 7 with Max 5 leaves
+      Value 5 and Max 5; the \texttt{Change} event prints \texttt{change 7}
+      and \texttt{change 5}.
+    \item The first image has key \texttt{red}, index 1, the list size 32 and
+      the type name \texttt{ListImage}; an insert at 1 moves \texttt{red} to
+      index 2; a duplicate key is 35602; an unknown key is 35601; setting the
+      width after an add is 35614; after the remove one image \texttt{red} is
+      left.
+    \item The script raises \texttt{scroll} and \texttt{change 3}.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{188-comctl-basic.expected} to standard output, and writes the
+      exact Immediate-window text of \texttt{188-comctl-basic.debug} to
+      standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

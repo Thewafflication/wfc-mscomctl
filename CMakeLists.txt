@@ -141,9 +141,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_tables_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-tables COMMAND mscomctl_tables_test)
+  add_test(NAME TC-0001-tables COMMAND mscomctl_tables_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-tables
+    TC-0001-tables
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -163,9 +163,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_range_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-range COMMAND mscomctl_range_test)
+  add_test(NAME TC-0002-range COMMAND mscomctl_range_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-range
+    TC-0002-range
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -185,9 +185,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_layout_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-layout COMMAND mscomctl_layout_test)
+  add_test(NAME TC-0003-layout COMMAND mscomctl_layout_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-layout
+    TC-0003-layout
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -207,9 +207,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_items_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-items COMMAND mscomctl_items_test)
+  add_test(NAME TC-0004-items COMMAND mscomctl_items_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-items
+    TC-0004-items
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -229,9 +229,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_toolbar_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-toolbar COMMAND mscomctl_toolbar_test)
+  add_test(NAME TC-0005-toolbar COMMAND mscomctl_toolbar_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-toolbar
+    TC-0005-toolbar
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -251,9 +251,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_tree_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-tree COMMAND mscomctl_tree_test)
+  add_test(NAME TC-0006-tree COMMAND mscomctl_tree_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-tree
+    TC-0006-tree
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -273,9 +273,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_list_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-list COMMAND mscomctl_list_test)
+  add_test(NAME TC-0007-list COMMAND mscomctl_list_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-list
+    TC-0007-list
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -295,9 +295,9 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
   if(COMMAND wsp_enable_hardening)
     wsp_enable_hardening(mscomctl_images_test)
   endif()
-  add_test(NAME TC-MP0010-mscomctl-images COMMAND mscomctl_images_test)
+  add_test(NAME TC-0008-images COMMAND mscomctl_images_test)
   set_tests_properties(
-    TC-MP0010-mscomctl-images
+    TC-0008-images
     PROPERTIES LABELS "unit;mp-0010;mscomctl" TIMEOUT 120
   )
 
@@ -315,13 +315,13 @@ if(BUILD_TESTING AND WFC_BUILD_TESTS)
       wsp_enable_hardening(mscomctl_dll_test)
     endif()
     add_test(
-      NAME TC-MP0010-mscomctl-dll
+      NAME TC-0009-dll
       COMMAND
         mscomctl_dll_test "$<TARGET_FILE:wfc_mscomctl>"
         "${WFC_MSCOMCTL_VERSION}" "${WFC_LIB_TARGET}"
     )
     set_tests_properties(
-      TC-MP0010-mscomctl-dll
+      TC-0009-dll
       PROPERTIES
         LABELS "integration;mp-0010;mscomctl"
         RESOURCE_LOCK registry

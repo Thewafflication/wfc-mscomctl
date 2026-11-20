@@ -1,0 +1,121 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0012
+}
+
+\def\TCTitle{%
+  Toolbar buttons
+}
+
+\def\TCPurpose{%
+  Verify the buttons of a Toolbar: styles, button menus, the group rule,
+  errors, SaveToolbar and RestoreToolbar, and the events.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0012, REQ-0020, REQ-0022
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/190-comctl-toolbar.frm} and
+  \texttt{tests/corpus/190-comctl-toolbar.vbp}; the form code and the controls
+  of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0012-comctl-toolbar.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{190-comctl-toolbar.vbp},
+  \texttt{190-comctl-toolbar.frm}, \texttt{190-comctl-toolbar.expected},
+  \texttt{190-comctl-toolbar.debug}, \texttt{190-comctl-toolbar.ui}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 190-comctl-toolbar.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{190-comctl-toolbar.ui} is the only input; the
+  case does not read the registry or other files except the picture named in
+  the form.
+}
+
+\def\TCInputData{%
+  A form with a Toolbar; the buttons \texttt{new}, \texttt{sep}, \texttt{bold}
+  (check), \texttt{left} and \texttt{center} (group) and \texttt{drop}
+  (drop-down with two menus); the script clicks each button and opens the menu
+  \texttt{m2} and the customization.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Add the six styles of button and two button menus; print the counts,
+      the menu text, the style and the type names.
+    \item Print the separator's width, a button's position and the top of the
+      first button.
+    \item Press \texttt{left} then \texttt{center} and print both values.
+    \item Set style 9 and set \texttt{Left} and print the errors.
+    \item Save the toolbar, hide \texttt{new}, restore it and print
+      \texttt{Visible}.
+    \item Run the script.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Six buttons, two menus, \texttt{Recent 2}, style 5, type names
+      \texttt{Button} and \texttt{ButtonMenu}; the separator is 8 pixels wide
+      and the buttons follow it from left to right.
+    \item Pressing \texttt{center} releases \texttt{left}.
+    \item A style of 9 is 380 and writing \texttt{Left} is 383 (read only).
+    \item Restoring brings \texttt{new} back (\texttt{True}).
+    \item Events: \texttt{click new 0}, \texttt{click bold 1}, \texttt{click
+      bold 0}, \texttt{click left 1}, \texttt{dropdown drop}, \texttt{menu
+      m2Recent 2}, \texttt{changed}.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{190-comctl-toolbar.expected} to standard output, and writes the
+      exact Immediate-window text of \texttt{190-comctl-toolbar.debug} to
+      standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

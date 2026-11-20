@@ -1,0 +1,120 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0016
+}
+
+\def\TCTitle{%
+  Persisted state in a form file
+}
+
+\def\TCPurpose{%
+  Verify that the property groups VB6 writes for the common controls are read
+  from a form file, and that the binary stream of the TreeView is reported and
+  not read.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0016, REQ-0023
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/194-comctl-persisted.frm} and
+  \texttt{tests/corpus/194-comctl-persisted.vbp}; the form code and the
+  controls of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0016-comctl-persisted.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{194-comctl-persisted.vbp},
+  \texttt{194-comctl-persisted.frm}, \texttt{194-comctl-persisted.expected},
+  \texttt{194-comctl-persisted.debug}, \texttt{194-comctl-persisted.ui},
+  \texttt{194-comctl-persisted.frx}, \texttt{194-comctl-persisted.red.bmp}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 194-comctl-persisted.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{194-comctl-persisted.ui} is the only input; the
+  case does not read the registry or other files except the picture named in
+  the form.
+}
+
+\def\TCInputData{%
+  A form file with \texttt{Tabs}, \texttt{Panels}, \texttt{Buttons} with
+  \texttt{ButtonMenus}, \texttt{ColumnHeader} and \texttt{Images} groups, an
+  \texttt{Object =} line and an \texttt{OleObjectBlob} for the TreeView; the
+  picture in \texttt{194-comctl-persisted.frx}.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Load the form and print the tabs (count, index of \texttt{adv}, tool
+      tip, selected key).
+    \item Print the panels (count, text, AutoSize, Width, style).
+    \item Print the buttons, the style of \texttt{open} and the text of its
+      menu.
+    \item Print the column headers, the image list and the TreeView node
+      count.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Two tabs, \texttt{adv} at index 2, the tool tip \texttt{tip} and the
+      first tab selected (\texttt{gen}).
+    \item Two panels, \texttt{Ready}, AutoSize 1, width 4000 and style 6.
+    \item Two buttons, style 5 and the menu text \texttt{Recent}.
+    \item Two columns (\texttt{Size} at 2000), one image with key \texttt{red}
+      at index 1 and width 32.
+    \item The TreeView has no nodes (0) and \texttt{WFC0293} is written to the
+      Immediate output.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{194-comctl-persisted.expected} to standard output, and writes
+      the exact Immediate-window text of \texttt{194-comctl-persisted.debug}
+      to standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

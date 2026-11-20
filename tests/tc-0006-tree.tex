@@ -1,0 +1,116 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0006
+}
+
+\def\TCTitle{%
+  TreeView rules
+}
+
+\def\TCPurpose{%
+  Verify the rules of a tree: the relationships of Add, where a node is
+  placed, sorting, paths, visible rows, hit testing, keyboard navigation,
+  SingleSel and label-edit decisions.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0013, REQ-0027, REQ-0028, REQ-0029, REQ-0030
+}
+
+\def\TCDesignRef{%
+  Not applicable; the rules are in the named header.
+}
+
+\def\TCFeatureRef{%
+  \texttt{include/wfc/mscomctl/tree.hpp} and \texttt{tests/tree\_test.cpp} and
+  the runner \texttt{tests/tc-0006-tree.ps1}
+}
+
+\def\TCTestTechnique{%
+  Equivalence partitioning and boundary value analysis of the rule functions
+  (ISO/IEC/IEEE 29119-4 specification-based techniques).
+}
+
+\def\TCPreconditions{%
+  The library is built standalone (\texttt{cmake -S . -B out/build}, then
+  \texttt{cmake --build out/build --config Debug}) with
+  \texttt{WFC\_BUILD\_TESTS} on; CTest runs the test as \texttt{TC-0006-tree}.
+}
+
+\def\TCEnvironment{%
+  Any target the library builds for (Windows x86, x64 and ARM64 with MSVC,
+  Linux through Winelib); local runs use the x64 Debug configuration of the
+  standalone build. The test needs no window, registry or network.
+}
+
+\def\TCAssumptions{%
+  The rule header under test is the one built into the library; the test is
+  compiled from the same source revision.
+}
+
+\def\TCInputData{%
+  Relationships -1 to 5 and 2.5; a tree of three roots; four rows with depth,
+  label width and state; key names (\texttt{down}, \texttt{up}, \texttt{home},
+  \texttt{end}, \texttt{left}, \texttt{right}, \texttt{space}, letters).
+}
+
+\def\TCInitialState{%
+  A fresh process; the test keeps no state between runs and holds no files or
+  handles.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Run \texttt{mscomctl\_tree\_test} (CTest \texttt{TC-0006-tree}).
+    \item Check the relationship numbers, then place nodes for each
+      relationship with and without a relative.
+    \item Compare texts, join paths with a separator, count the rows that fit
+      in a height.
+    \item Hit-test positions on, left of, above and below rows, with an
+      indentation.
+    \item Ask for the effect of each key on a list of rows, with and without
+      check boxes, on a collapsed node and on an empty tree.
+    \item Ask the SingleSel and label-edit questions.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Relationships 0 to 4 are valid (2.5 rounds to 2), others give 35607.
+    \item A node without a relative is a new root; child goes after the last
+      child; first, last, next and previous go where their names say.
+    \item Sorting ignores case and a prefix comes first; a path joins the
+      texts with the separator and skips an empty root; the rows that fit
+      follow the height.
+    \item Hit testing finds the row and its indentation, and nothing outside
+      the labels.
+    \item Down and up wrap, home and end go to the ends, a letter finds the
+      next row that starts with it, right expands or goes to the first child,
+      left collapses or goes to the parent, space toggles a check box only
+      with check boxes.
+    \item SingleSel collapses the previous node; a second click starts an
+      automatic edit; the edited text is kept unless cancelled.
+    \item The program prints \texttt{tree: ok} and exits with code 0.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The process ends; nothing is written outside CTest's own log.
+}
+
+\TCTemplate
+
+\end{document}

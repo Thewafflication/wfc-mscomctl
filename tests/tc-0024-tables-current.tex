@@ -1,0 +1,98 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0024
+}
+
+\def\TCTitle{%
+  Member table matches the type-library evidence
+}
+
+\def\TCPurpose{%
+  Verify that the generated member table of the library is the one generated
+  from the type-library evidence now on record.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0001, REQ-0002, REQ-0003, REQ-0004, REQ-0005, REQ-0006, REQ-0007,
+  REQ-0008, REQ-0009
+}
+
+\def\TCDesignRef{%
+  Not applicable; the rules are in the named header.
+}
+
+\def\TCFeatureRef{%
+  \texttt{src/mscomctl\_tables.cpp} (its \texttt{SHA256} line) and WFC's
+  \texttt{tests/check\_ui\_tables.cmake} with
+  \texttt{evidence/reference/mscomctl-2.0-type-library.json} and the runner
+  \texttt{tests/tc-0024-tables-current.ps1}
+}
+
+\def\TCTestTechnique{%
+  Consistency check by comparison of a recorded hash (ISO/IEC/IEEE 29119-4
+  specification-based technique).
+}
+
+\def\TCPreconditions{%
+  A checkout of WFC with this library under \texttt{lib/wfc-mscomctl} and the
+  evidence file; CMake. The check runs in WFC.
+}
+
+\def\TCEnvironment{%
+  Any platform with CMake; WFC runs the script with the evidence file and
+  \texttt{src/mscomctl\_tables.cpp} as arguments.
+}
+
+\def\TCAssumptions{%
+  The evidence file is the type library of MSCOMCTL.OCX 2.0 as recorded by
+  WFC.
+}
+
+\def\TCInputData{%
+  The evidence file (line endings normalized) and the first \texttt{SHA256}
+  line of the table source.
+}
+
+\def\TCInitialState{%
+  Neither file changes during the check.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Read the evidence file and replace CRLF by LF.
+    \item Compute its SHA-256 hash.
+    \item Read the first \texttt{// SHA256:} line of
+      \texttt{mscomctl\_tables.cpp}.
+    \item Compare the two hashes.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item The table source has a \texttt{SHA256} line.
+    \item The hash in the table equals the hash of the evidence; if not the
+      check fails with \texttt{control tables are stale} and the table has to
+      be regenerated from the evidence.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  Nothing is written.
+}
+
+\TCTemplate
+
+\end{document}

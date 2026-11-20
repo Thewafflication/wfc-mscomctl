@@ -1,0 +1,136 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0020
+}
+
+\def\TCTitle{%
+  TreeView rules
+}
+
+\def\TCPurpose{%
+  Verify the TreeView rules through two trees: the errors of Add, read-only
+  properties, paths, EnsureVisible, sorting, visible rows, hit testing,
+  removal of the selected node, and the events with SingleSel and manual label
+  editing.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0013, REQ-0027, REQ-0028, REQ-0029, REQ-0030
+}
+
+\def\TCDesignRef{%
+  \texttt{ADR-0006} and \texttt{ADR-0010} in WFC
+}
+
+\def\TCFeatureRef{%
+  \texttt{tests/corpus/224-comctl-tree-rules.frm} and
+  \texttt{tests/corpus/224-comctl-tree-rules.vbp}; the form code and the
+  controls of \texttt{include/wfc/mscomctl/mscomctl.inc} and the runner
+  \texttt{tests/tc-0020-comctl-tree-rules.ps1}
+}
+
+\def\TCTestTechnique{%
+  Scenario-based testing of one form: each Immediate-window line is compared
+  with the recorded outcome (ISO/IEC/IEEE 29119-4 experience-based and
+  specification-based techniques, with expected output comparison).
+}
+
+\def\TCPreconditions{%
+  A \texttt{wfc} of the same version as the library (WFC, the interpreter and
+  compiler these controls belong to, runs the case: the library holds the
+  program, WFC the runner). The files of the case are in
+  \texttt{tests/corpus}: \texttt{224-comctl-tree-rules.vbp},
+  \texttt{224-comctl-tree-rules.frm}, \texttt{224-comctl-tree-rules.expected},
+  \texttt{224-comctl-tree-rules.debug}, \texttt{224-comctl-tree-rules.ui}.
+}
+
+\def\TCEnvironment{%
+  Windows with \texttt{wfc.exe} of the x64 Debug build; the form runs in WFC's
+  headless host (no desktop is needed). WFC registers the case with CTest and
+  runs \texttt{wfc --interpret 224-comctl-tree-rules.vbp}.
+}
+
+\def\TCAssumptions{%
+  The scripted input \texttt{224-comctl-tree-rules.ui} is the only input; the
+  case does not read the registry or other files except the picture named in
+  the form.
+}
+
+\def\TCInputData{%
+  A form with two TreeViews; nodes added with the relationships 5, -1,
+  \texttt{abc} and 99, a number as key and no key; the script clicks, checks,
+  edits and collapses.
+}
+
+\def\TCInitialState{%
+  A fresh \texttt{wfc} process; the program creates its own controls from the
+  form file and starts with no state from a previous run.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Build a tree and print it; add nodes with out-of-range, non-numeric
+      and missing relationships and keys and print each error.
+    \item Write the read-only \texttt{FullPath} and \texttt{Children}; set
+      \texttt{PathSeparator} and print a path; call \texttt{EnsureVisible}
+      with \texttt{Scroll} on and off.
+    \item Sort one node, add a node, then sort the whole tree.
+    \item Print the visible count expanded and collapsed; hit-test row by row
+      and with \texttt{Indentation} 500; call \texttt{HitTest} with one
+      argument.
+    \item Select a deep node and remove its ancestor; build the second tree.
+    \item Run the script.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item Relationships 5 and -1 are 35607 \texttt{Invalid relationship},
+      \texttt{abc} is 13, a missing relative is 35600 \texttt{Index out of
+      bounds}, a numeric key is 13; no key is accepted (count 8); a
+      relationship without a relative makes a root; writing \texttt{FullPath}
+      or \texttt{Children} is 383.
+    \item The path with \texttt{ \textgreater{} } is \texttt{Root
+      \textgreater{} Zulu \textgreater{} Kid \textgreater{} Grandkid};
+      \texttt{EnsureVisible} expands (\texttt{True}) and then prints
+      \texttt{False}; with \texttt{Scroll} off it prints \texttt{False} and
+      does not expand.
+    \item Sorting folds case and is stable, a node added to a sorted node goes
+      to its place, and the whole tree sorts as printed.
+    \item The visible counts, the rows 240 twips apart and the hit tests with
+      the indentation are as recorded in \texttt{.debug}; \texttt{HitTest}
+      with one argument is 450.
+    \item Removing the ancestor of the selected node leaves no selection and
+      seven nodes.
+    \item The events follow the clicks, checks, collapses and edits in the
+      order of \texttt{.debug}: a label edit of the node \texttt{r0} is
+      cancelled by the form, the second tree shows SingleSel collapsing the
+      previous node.
+    \item \texttt{wfc} exits with code 0, writes the exact text of
+      \texttt{224-comctl-tree-rules.expected} to standard output, and writes
+      the exact Immediate-window text of \texttt{224-comctl-tree-rules.debug}
+      to standard error. Any difference fails the case.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The form is closed by the last \texttt{close Form1} line of the script;
+  nothing is left running and no file is written.
+}
+
+\TCTemplate
+
+\end{document}

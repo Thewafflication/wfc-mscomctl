@@ -1,0 +1,113 @@
+\documentclass[letterpaper]{article}
+
+\usepackage[letterpaper,margin=1in]{geometry}
+
+% Compile from the repository root so that this path resolves to
+% the pinned WSP submodule.
+\input{wsp/testing/test-case-library.tex}
+
+\begin{document}
+
+\def\TCID{%
+  TC-0004
+}
+
+\def\TCTitle{%
+  Keys, indexes and collection errors
+}
+
+\def\TCPurpose{%
+  Verify the rules every collection shares: keys found without regard to case,
+  indexes rounded to the nearest whole number, the error numbers, where Add
+  inserts, the panel limit, the bound-ImageList insert rule and the tab
+  selection rules.
+}
+
+\def\TCPriority{%
+  \TCPriorityHigh
+}
+
+\def\TCRequirementRef{%
+  REQ-0010, REQ-0011, REQ-0017
+}
+
+\def\TCDesignRef{%
+  Not applicable; the rules are in the named header.
+}
+
+\def\TCFeatureRef{%
+  \texttt{include/wfc/mscomctl/items.hpp} and \texttt{tests/items\_test.cpp}
+  and the runner \texttt{tests/tc-0004-items.ps1}
+}
+
+\def\TCTestTechnique{%
+  Equivalence partitioning and boundary value analysis of the rule functions
+  (ISO/IEC/IEEE 29119-4 specification-based techniques).
+}
+
+\def\TCPreconditions{%
+  The library is built standalone (\texttt{cmake -S . -B out/build}, then
+  \texttt{cmake --build out/build --config Debug}) with
+  \texttt{WFC\_BUILD\_TESTS} on; CTest runs the test as
+  \texttt{TC-0004-items}.
+}
+
+\def\TCEnvironment{%
+  Any target the library builds for (Windows x86, x64 and ARM64 with MSVC,
+  Linux through Winelib); local runs use the x64 Debug configuration of the
+  standalone build. The test needs no window, registry or network.
+}
+
+\def\TCAssumptions{%
+  The rule header under test is the one built into the library; the test is
+  compiled from the same source revision.
+}
+
+\def\TCInputData{%
+  A list of four keys (\texttt{One}, empty, \texttt{tWo}, \texttt{Three}) and
+  the indexes 0, 1, 2.5, 3.5, 4, 5 and 6.
+}
+
+\def\TCInitialState{%
+  A fresh process; the test keeps no state between runs and holds no files or
+  handles.
+}
+
+\def\TCProcedure{%
+  \begin{enumerate}
+    \item Run \texttt{mscomctl\_items\_test} (CTest \texttt{TC-0004-items}).
+    \item Find items by key (matching and not, empty) and by index, including
+      rounding and out-of-range indexes and a selector that is neither.
+    \item Check whether a key is in use for a new and an existing item.
+    \item Compute the insert position of Add with no index and with indexes 1,
+      5, 6 and 0.
+    \item Check the panel count 15 and 16, the insert into a bound and an
+      unbound image list, and the selection after the first tab is added and
+      after a tab is removed.
+  \end{enumerate}
+}
+
+\def\TCExpectedResult{%
+  \begin{enumerate}
+    \item A key matches without regard to case; an empty or unknown key is
+      35601; indexes 1 to 4 are found, 2.5 rounds to 2 and 3.5 to 4, indexes 0
+      and 5 are 35600, a non-number non-key is 13.
+    \item A key is in use unless it is empty or belongs to the item itself.
+    \item Add appends without an index, inserts first at 1, appends at one
+      past the last, and refuses indexes beyond that and 0 (35600).
+    \item The error numbers are 35600, 35601, 35602, 13, 35609 (a sixteenth
+      panel is the last allowed) and 35615 (a bound image list only grows at
+      the end).
+    \item Only the first tab added is selected; removal chooses the previous
+      tab, the second when the first goes, none when it was the only one.
+    \item The program prints \texttt{items: ok} and exits with code 0.
+  \end{enumerate}
+}
+
+\def\TCPostConditions{%
+  The process ends; nothing is written outside CTest's own log.
+}
+
+\TCTemplate
+
+\end{document}
