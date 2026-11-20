@@ -3,12 +3,11 @@
 Runs the WSP traceability check on the requirements and test cases.
 .DESCRIPTION
 Calls wsp/tools/Test-Traceability.ps1 with this library's layout:
-requirements/**/req-NNNN-*.md, test specifications tests/tc-NNNN-*.tex.
-The test cases are CTest programs, WFC corpus programs and an example rather
-than tc-NNNN PowerShell runners, so the check runs with -AllowManualTests:
-each requirement must name existing TC-NNNN cases and each specification must
-name the requirements it verifies, but a PowerShell runner per case is not
-required.
+requirements/**/req-NNNN-*.md, test specifications tests/tc-NNNN-*.tex and
+runners tests/tc-NNNN-*.ps1. Every requirement must name existing TC-NNNN
+cases, every specification the requirements it verifies, and every case needs
+a runner (the CTest cases run through ctest, the corpus cases and the example
+through wfc).
 .EXAMPLE
 pwsh -NoProfile -File scripts/Invoke-Traceability.ps1
 #>
@@ -28,8 +27,7 @@ try {
         '-RepositoryRoot', '.',
         '-RequirementsPath', 'requirements',
         '-TestSpecificationsPath', 'tests',
-        '-TestImplementationsPath', 'tests',
-        '-AllowManualTests')
+        '-TestImplementationsPath', 'tests')
 }
 finally {
     Pop-Location
