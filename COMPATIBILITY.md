@@ -1,6 +1,6 @@
 # wfc-mscomctl: compatibility with mscomctl.ocx
 
-Target: **MSCOMCTL.OCX 6.1.98 (Visual Basic 6.0 SP6)**. Library version: **0.6.1**.
+Target: **MSCOMCTL.OCX 6.1.98 (Visual Basic 6.0 SP6)**. Library version: **0.6.2**.
 
 Generated from the type library of MSCOMCTL.OCX 2.0 retained in the WFC evidence.
 
