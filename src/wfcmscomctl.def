@@ -1,4 +1,4 @@
-LIBRARY wfcmscomctl
+LIBRARY mscomctl.ocx
 EXPORTS
     DllRegisterServer PRIVATE
     DllUnregisterServer PRIVATE

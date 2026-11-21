@@ -17,7 +17,7 @@
 }
 
 \def\TCPurpose{%
-  Verify the shared library \texttt{wfcmscomctl.dll} as any program uses it:
+  Verify the shared library \texttt{mscomctl.ocx} as any program uses it:
   the COM entry points, the version resource, the registration round trip, and
   the controls it creates through COM (ranges, collections, events, user
   input).
@@ -49,7 +49,7 @@
 
 \def\TCPreconditions{%
   Windows; the library built with \texttt{WFC\_MSCOMCTL\_SHARED=ON} so that
-  \texttt{wfcmscomctl.dll} and the C test \texttt{mscomctl\_dll\_test} exist.
+  \texttt{mscomctl.ocx} and the C test \texttt{mscomctl\_dll\_test} exist.
   The current user's registry may be written (\texttt{HKCU}).
 }
 

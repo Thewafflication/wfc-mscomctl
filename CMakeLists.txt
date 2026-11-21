@@ -3,7 +3,7 @@
 # The member table is generated from the type-library evidence
 # (scripts/New-UiControlTables.ps1 in WFC).
 # The table is built static by default; WFC_MSCOMCTL_SHARED builds it as
-# wfcmscomctl.dll so a program can load it at run time instead. The version is
+# mscomctl.ocx so a program can load it at run time instead. The version is
 # the one in VERSION and is stamped into the DLL's version resource.
 #
 # Test names: standalone the CTest names are TC-NNNN-<name>. When another
@@ -56,7 +56,7 @@ if(NOT DEFINED WFC_OCX_SHARED)
 endif()
 option(
   WFC_MSCOMCTL_SHARED
-  "Build the WFC mscomctl library as wfcmscomctl.dll"
+  "Build the WFC mscomctl library as mscomctl.ocx"
   ${WFC_OCX_SHARED}
 )
 
@@ -92,6 +92,7 @@ if(WFC_MSCOMCTL_SHARED AND WIN32)
     @ONLY
   )
   set(WFC_LIB_NAME wfcmscomctl)
+  set(WFC_LIB_FILE mscomctl.ocx)
   set(WFC_LIB_DESCRIPTION "WFC Windows Common Controls")
   configure_file(
     version.rc.in
@@ -116,7 +117,10 @@ if(WFC_MSCOMCTL_SHARED AND WIN32)
   set_target_properties(
     wfc_mscomctl
     PROPERTIES
-      OUTPUT_NAME wfcmscomctl
+      OUTPUT_NAME mscomctl
+      SUFFIX ".ocx"
+      ARCHIVE_OUTPUT_NAME wfcmscomctl
+      PDB_NAME wfcmscomctl
       VERSION "${WFC_MSCOMCTL_VERSION}"
       RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}"
   )
@@ -138,7 +142,7 @@ endif()
 
 # --- Tests --------------------------------------------------------------------
 # The table (any build) and, in the shared build, the DLL itself: a C program
-# loads wfcmscomctl.dll, checks its COM entry points and version resource, and
+# loads mscomctl.ocx, checks its COM entry points and version resource, and
 # registers and unregisters it in the registry of the current user.
 if(BUILD_TESTING AND WFC_BUILD_TESTS)
   add_executable(mscomctl_tables_test tests/mscomctl_tables_test.cpp)

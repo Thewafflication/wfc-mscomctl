@@ -1,6 +1,6 @@
 # wfc-mscomctl roadmap
 
-Library: **Windows Common Controls** (`wfcmscomctl.dll`), the WFC replacement for `mscomctl.ocx`.
+Library: **Windows Common Controls** (`mscomctl.ocx`), the WFC replacement for `mscomctl.ocx`.
 Current version **0.6.1**, targeting **MSCOMCTL.OCX 6.1.98 (Visual Basic 6.0 SP6)**.
 
 The version stays `0.<target major>.<target minor>` until the library matches
